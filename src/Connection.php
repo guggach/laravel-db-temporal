@@ -2,6 +2,4 @@
 
 namespace Guggach\LaravelDbTemporal;
 
-class LaravelDbTemporal
-{
-}
+class LaravelDbTemporal {}

@@ -7,7 +7,7 @@ return [
             'driver' => 'bitemp',
             'baseConnectionName' => 'sqlite',
             'options' => [
-                'baseConnectionClass' =>'',
+                'baseConnectionClass' => '',
                 'queryBuilder' => '',
 
             ],
@@ -16,10 +16,10 @@ return [
                 'fact_from' => 'valid_from',
                 'fact_to' => 'valid_until',
                 'known_from' => 'belive_from',
-                'known_until' => 'belive_until'
-            ]
-        ]
+                'known_until' => 'belive_until',
+            ],
+        ],
 
-    ]
+    ],
 
 ];

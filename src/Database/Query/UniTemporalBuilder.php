@@ -3,28 +3,30 @@
 namespace Guggach\LaravelDbTemporal\Database\Query;
 
 use Carbon\Carbon;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\Grammar;
 use Illuminate\Database\Query\Processors\Processor;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
-Class UniTemporalBuilder extends Builder
+class UniTemporalBuilder extends Builder
 {
-
     // private string $attributeSysFrom = config('db-temporal.defaults.attributeSysFrom');
     // private string $attributeSysTo = config('db-temporal.defaults.attributeSysTo');
     // private string $maxTimestamp = config('db-temporal.defaults.maxTimestamp');
 
     private string $columnTrxDateFrom;
+
     private string $columnTrxDateTo;
+
     private string $maxTimestamp;
+
     private bool $calledByEloquent = false;
 
     public function __construct(ConnectionInterface $connection,
-                                Grammar $grammar = null,
-                                Processor $processor = null)
+        ?Grammar $grammar = null,
+        ?Processor $processor = null)
     {
         $this->connection = $connection;
         $this->grammar = $grammar ?: $connection->getQueryGrammar();
@@ -35,8 +37,9 @@ Class UniTemporalBuilder extends Builder
         $this->maxTimestamp = config('db-temporal.defaults.maxTimestamp');
     }
 
-    public function setTemporalColumnNames(string $columnTrxDateFrom = null, string $columnTrxDateTo = null,
-        string $maxTimestamp = null, bool $calledByEloquent = false){
+    public function setTemporalColumnNames(?string $columnTrxDateFrom = null, ?string $columnTrxDateTo = null,
+        ?string $maxTimestamp = null, bool $calledByEloquent = false)
+    {
 
         $this->columnTrxDateFrom = $columnTrxDateFrom ?? $this->columnTrxDateFrom;
         $this->columnTrxDateTo = $columnTrxDateTo ?? $this->columnTrxDateTo;
@@ -44,14 +47,12 @@ Class UniTemporalBuilder extends Builder
         $this->calledByEloquent = $calledByEloquent;
     }
 
-
     // insert()
     // -> add current timestamp in sysFrom + maxdate in sysTo
     /**
      * Insert new records into the database with unitemporal timestamps.
      * Record versioning in one dimension belive or known from until belive to or known until
      *
-     * @param  array  $values
      * @return bool
      */
     public function insert(array $values)
@@ -93,15 +94,12 @@ Class UniTemporalBuilder extends Builder
             $this->cleanBindings(Arr::flatten($values, 1))
         );
 
-
     }
-
 
     /**
      * Insert a new record and get the value of the primary key.
      * Produce the Id by own function, because autoincrement can not be overriden in DB (exceptionally MySQL)
      *
-     * @param  array  $values
      * @param  string|null  $sequence
      * @return int
      */
@@ -109,7 +107,7 @@ Class UniTemporalBuilder extends Builder
     {
         $this->applyBeforeQueryCallbacks();
 
-        //$newId = DB::connection($this->getConnection()->getName())->table($this->from)->max($sequence) ?? 0;
+        // $newId = DB::connection($this->getConnection()->getName())->table($this->from)->max($sequence) ?? 0;
         $newId = $this->max('id') ?? 0;
         $newId++;
 
@@ -128,7 +126,6 @@ Class UniTemporalBuilder extends Builder
     /**
      * Update records in the database.
      *
-     * @param  array  $values
      * @return int
      */
     public function update(array $values)
@@ -148,18 +145,18 @@ Class UniTemporalBuilder extends Builder
         $query->where($this->columnTrxDateTo, $this->maxTimestamp);
         $oldRecs = $query->get();
 
-        $updateTime = new Carbon();
+        $updateTime = new Carbon;
         $count = 0;
 
-        foreach($oldRecs as $oldRec){
+        foreach ($oldRecs as $oldRec) {
             $oldRec = (array) $oldRec;
 
             // hack to eliminate duplicate with prefixed updated_at column from Eloquent
             // hack prefixed columns are not allowed in SQL language
-            foreach($values as $key => $value) {
+            foreach ($values as $key => $value) {
                 $partials = explode('.', $key);
                 if (isset($partials[1])) {
-                    if (array_key_exists($partials[1], $oldRec)){
+                    if (array_key_exists($partials[1], $oldRec)) {
                         unset($oldRec[$partials[1]]);
                     }
                     $values[$partials[1]] = $value;
@@ -167,8 +164,7 @@ Class UniTemporalBuilder extends Builder
                 }
             }
 
-
-            //Merge values from previous record with updated values
+            // Merge values from previous record with updated values
             $values = array_merge($oldRec, $values, [$this->columnTrxDateFrom => $updateTime->format('Y-m-d H:i:s')]);
 
             // Update transaction to date or old record
@@ -186,7 +182,6 @@ Class UniTemporalBuilder extends Builder
         //     $this->grammar->compileInsert($this, $values),
         //     $this->cleanBindings(Arr::flatten($values, 1))
         // );
-
 
     }
 
@@ -209,7 +204,7 @@ Class UniTemporalBuilder extends Builder
 
         $this->applyBeforeQueryCallbacks();
 
-        $now = new Carbon();
+        $now = new Carbon;
 
         $this->where($this->columnTrxDateTo, $this->maxTimestamp);
 
@@ -217,22 +212,21 @@ Class UniTemporalBuilder extends Builder
 
     }
 
-
     // delete()
     // -> search current record
     // -> update the found record with sysTo = current timestamp minus 1 sec.
 
-    protected function setTransactionTimestamp ($values) : Array
+    protected function setTransactionTimestamp($values): array
     {
-        if($this->calledByEloquent === false) {
-            $now = new \DateTime();
+        if ($this->calledByEloquent === false) {
+            $now = new \DateTime;
             $timestamp = $now->format('Y-m-d H:i:s');
             for ($i = 0; $i < count($values); $i++) {
                 $values[$i][$this->columnTrxDateFrom] = $timestamp;
                 $values[$i][$this->columnTrxDateTo] = $this->maxTimestamp;
             }
         }
+
         return $values;
     }
-
 }

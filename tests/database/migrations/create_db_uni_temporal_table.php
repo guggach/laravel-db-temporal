@@ -39,8 +39,6 @@ return new class extends Migration
             $table->primary(['id', 'trx_date_from', 'trx_date_to']);
         });
 
-
-
         Schema::create('uni_temporal_ulids', function (Blueprint $table) {
             $table->ulid('id');
             $table->dateTime('known_from');
@@ -50,8 +48,6 @@ return new class extends Migration
             $table->timestamps();
             $table->primary(['id', 'known_from', 'known_to']);
         });
-
-
 
     }
 };

@@ -1,22 +1,23 @@
 <?php
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Query\Builder;
 use Guggach\LaravelDbTemporal\Eloquent\UniTemporalScope;
-use Guggach\LaravelDbTemporal\Tests\Models\UniTemporalId;
 use Guggach\LaravelDbTemporal\tests\database\UniTemporalIdSeeder;
+use Guggach\LaravelDbTemporal\Tests\Models\UniTemporalId;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\DB;
 
-beforeEach(function(){
+beforeEach(function () {
     // $this->artisan('migrate', [
     // // '--path' => './tests/migrations'
     // ])->run();
     RefreshDatabase::class;
 
- //   $this->seed(UnitTemporalIdSeeder::class);
+    //   $this->seed(UnitTemporalIdSeeder::class);
 });
 
-function seedDB() {
+function seedDB()
+{
     $t = 'uni_temporal_ids';
 
     $records = [
@@ -24,43 +25,42 @@ function seedDB() {
             'id' => 1,
             'known_from' => '2023-05-01 00:00:00',
             'known_to' => '2023-05-05 16:59:59',
-            'text' => 'first record'
+            'text' => 'first record',
         ],
         1 => [
             'id' => 1,
             'known_from' => '2023-05-05 17:00:00',
             'known_to' => '2023-05-10 16:59:59',
-            'text' => 'second record'
+            'text' => 'second record',
         ],
         2 => [
             'id' => 1,
             'known_from' => '2023-05-10 17:00:00',
             'known_to' => '2023-05-15 16:59:59',
-            'text' => 'third record'
+            'text' => 'third record',
         ],
         3 => [
             'id' => 1,
             'known_from' => '2023-05-15 17:00:00',
             'known_to' => '9999-12-31 23:59:59',
-            'text' => 'fourth record'
+            'text' => 'fourth record',
         ],
     ];
 
-    foreach($records as $record){
+    foreach ($records as $record) {
         DB::connection('sqlite-test')->table($t)->insert($record);
     }
 
 }
 
-it('test db seed', function() {
-
+it('test db seed', function () {
 
     $this->artisan('db:seed', ['--class' => 'Guggach\LaravelDbTemporal\Tests\database\UniTemporalIdSeeder']);
 
- //   $this->seed(UniTemporalIdSeeder::class);
+    //   $this->seed(UniTemporalIdSeeder::class);
 
     $recs = UniTemporalId::withoutGlobalScope(UniTemporalScope::class)->count();
-    //dump($recs);
+    // dump($recs);
     expect($recs)->toBe(4);
 
     $a = UniTemporalId::where('id', 1)->get();
@@ -72,30 +72,26 @@ it('test db seed', function() {
     expect($b->text)->toBe('first record');
 
     $c = UniTemporalId::where('id', 1)->versionAsOf('2023-05-08 00:00:00')->get();
-    //dump($c);
+    // dump($c);
     expect($c->count())->toBe(1);
     expect($c->first()->text)->toBe('second record');
 
     $d = UniTemporalId::where('id', 1)->allVersions()->get();
-    //dump($d);
+    // dump($d);
     expect($d->count())->toBe(4);
 
     $e = UniTemporalId::where('id', 1)->versionsInRange('2023-05-08', '2023-05-17')->get();
-    //dump($e);
+    // dump($e);
     expect($e->count())->toBe(1);
     expect($e->first()->text)->toBe('third record');
 
     $f = UniTemporalId::where('id', 1)->versionsTouchedRange('2023-05-08', '2023-05-17')->get();
-    //dump($f);
+    // dump($f);
     expect($f->count())->toBe(3);
     expect($f->first()->text)->toBe('second record');
     expect($f->last()->text)->toBe('fourth record');
 
-
-
 });
-
-
 
 // it('insert a record, retrive model and delete it', function(){
 
@@ -130,9 +126,4 @@ it('test db seed', function() {
 //     $recAfterDel = UniTemporalId::where('id', 1)->latest('known_to')->first();
 //     expect($recAfterDel->known_to->format('Y-m-d H:i:s'))->not->toBe($maxDateTime);
 
-
-
-
 // });
-
-

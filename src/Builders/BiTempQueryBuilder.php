@@ -4,7 +4,4 @@ namespace Guggach\LaravelDbTemporal\Builders;
 
 use Illuminate\Database\Query\Builder;
 
-Class BiTempQueryBuilder extends Builder
-{
-    
-}
+class BiTempQueryBuilder extends Builder {}

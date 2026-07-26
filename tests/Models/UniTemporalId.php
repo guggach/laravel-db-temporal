@@ -11,6 +11,5 @@ class UniTemporalId extends Model
     use HasFactory;
     use IsUniTemporal;
 
-
     protected $guarded = [];
 }

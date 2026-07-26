@@ -21,5 +21,5 @@ return [
         'maxTimestamp' => '9999-12-31 23:59:59',
         'maxDate' => '9999-12-31',
         'validRangeGranularity' => 'date',  // or 'datetime'
-    ]
+    ],
 ];

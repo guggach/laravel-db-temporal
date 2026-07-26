@@ -1,13 +1,9 @@
 <?php
 
-
-
 use Guggach\LaravelDbTemporal\Tests\TestCase;
 use Illuminate\Database\Eloquent\Model;
 
 uses(TestCase::class)->in('Feature');
-
-
 
 /**
  * Eloquent Models...
