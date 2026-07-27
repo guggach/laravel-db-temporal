@@ -1,6 +1,6 @@
 {
     "name": "guggach/laravel-db-temporal",
-    "description": "The package issues a virtual DB which ensures bi-temporal functions.",
+    "description": "Uni-temporal (transaction time) versioning for Laravel – automatic versioning on insert, update, and delete.",
     "keywords": [
         "laravel",
         "laravel package",
@@ -21,6 +21,7 @@
         "spatie/laravel-package-tools": "^1.15.0"
     },
     "require-dev": {
+        "laravel/boost": "^2.4",
         "laravel/pint": "^1.0",
         "nunomaduro/collision": "^8.0",
         "orchestra/testbench": "^10.0",

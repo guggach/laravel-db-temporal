@@ -2,7 +2,7 @@
 
 namespace Guggach\LaravelDbTemporal;
 
-use Guggach\LaravelDbTemporal\Commands\LaravelDbTemporalCommand;
+use Guggach\LaravelDbTemporal\Connections\TemporalConnection;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -10,34 +10,25 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
 {
     public function configurePackage(Package $package): void
     {
-        /*
-         * This class is a Package Service Provider
-         *
-         * More info: https://github.com/spatie/laravel-package-tools
-         */
         $package
             ->name('laravel-db-temporal')
             ->hasConfigFile('db-temporal');
-
-        //            ->hasMigration('create_laravel-db-temporal_table')
-        //            ->hasCommand(LaravelDbTemporalCommand::class);
     }
 
-    public function register()
+    public function boot(): void
     {
+        $db = $this->app['db'];
 
-        parent::register();
+        $db->extend('temporal-proxy', function ($config, $name) {
+            $baseDriver = $config['base'] ?? 'mysql';
 
-        // $app = $this->app;
+            $baseConfig = $config;
+            $baseConfig['driver'] = $baseDriver;
+            unset($baseConfig['base'], $baseConfig['uni-temporal'], $baseConfig['bi-temporal']);
 
-        // $this->app->resolving('db', function ($db) use ($app) {
-        //     /** @var DatabaseManager $db */
-        //     $db->extend('bitemp', function ($config, $name) use ($app) {
+            $baseConnection = $this->app['db.factory']->make($baseConfig, $name);
 
-        //         $pdoConnection = (new ODBCConnector())->connect($config);
-        //         $connection = new ODBCConnection($pdoConnection, $config['database'], isset($config['prefix']) ? $config['prefix'] : '', $config);
-        //         return $connection;
-        //     });
-        // });
+            return new TemporalConnection($baseConnection, $config);
+        });
     }
 }

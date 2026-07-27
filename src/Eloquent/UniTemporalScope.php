@@ -9,43 +9,29 @@ use Illuminate\Database\Eloquent\Scope;
 
 class UniTemporalScope implements Scope
 {
-    /**
-     * All of the extensions to be added to the builder.
-     *
-     * @var array
-     */
-    protected $extensions = ['CurrentVersion', 'AllVersions', 'FirstVersion', 'VersionAsOf', 'VersionsInRange', 'VersionsTouchedRange', 'LatestVersion'];
+    protected $extensions = [
+        'CurrentVersion',
+        'AllVersions',
+        'FirstVersion',
+        'VersionAsOf',
+        'VersionsInRange',
+        'VersionsTouchedRange',
+        'LatestVersion',
+    ];
 
-    /**
-     * Apply the scope to a given Eloquent query builder.
-     * Only shows the currently active revision
-     *
-     * @return void
-     */
-    public function apply(Builder $builder, Model $model)
+    public function apply(Builder $builder, Model $model): void
     {
         $builder->where($model->getColumnTrxTo(), $model->getMaxTimestamp());
     }
 
-    public function extend(Builder $builder)
+    public function extend(Builder $builder): void
     {
         foreach ($this->extensions as $extension) {
             $this->{"add{$extension}"}($builder);
         }
-
-        // $builder->onDelete(function (Builder $builder) {
-        // 	$model = $builder->getModel();
-        // 	$column = $model->getTemporalEndColumn();
-        // 	return $builder->update([
-        // 		$column => $model->freshTimestampString(),
-        // 	]);
-        // });
     }
 
-    /**
-     * Retrive the current active transaction version. This is default by global scope. Without scope use this function.
-     */
-    protected function addCurrentVersion(Builder $builder)
+    protected function addCurrentVersion(Builder $builder): void
     {
         $builder->macro('currentVersion', function (Builder $builder) {
             $model = $builder->getModel();
@@ -57,137 +43,90 @@ class UniTemporalScope implements Scope
         });
     }
 
-    /**
-     * The allVersions builder method will remove the constraint that normally causes just the currently active versions to be returned.
-     * Use this scope only with ->get() function.
-     */
-    protected function addAllVersions(Builder $builder)
+    protected function addAllVersions(Builder $builder): void
     {
         $builder->macro('allVersions', function (Builder $builder) {
             return $builder->withoutGlobalScope($this);
         });
     }
 
-    /**
-     * The firstVersions builder method will constrain the first entry. Use this scope only with ->first() function
-     */
-    protected function addFirstVersion(Builder $builder)
+    protected function addFirstVersion(Builder $builder): void
     {
         $builder->macro('firstVersion', function (Builder $builder) {
             $model = $builder->getModel();
 
-            $builder->withoutGlobalScope($this)
+            return $builder->withoutGlobalScope($this)
                 ->oldest($model->getColumnTrxTo());
-
-            return $builder;
         });
     }
 
-    /**
-     * The versionAsOf builder method will retrive the version of a certain date independent of current or history.
-     * Use ->first() or ->get() function
-     */
-    protected function addVersionAsOf(Builder $builder)
+    protected function addVersionAsOf(Builder $builder): void
     {
         $builder->macro('versionAsOf', function (Builder $builder, Carbon|string|null $datetime = null) {
-            if (! $datetime instanceof Carbon) {
-                $datetime = new Carbon($datetime);
-            }
+            $datetime = $this->resolveCarbon($datetime);
 
             $model = $builder->getModel();
 
-            $builder->withoutGlobalScope($this)
+            return $builder->withoutGlobalScope($this)
                 ->where($model->getColumnTrxFrom(), '<=', $datetime)
                 ->where($model->getColumnTrxTo(), '>=', $datetime);
-
-            return $builder;
         });
     }
 
-    /**
-     * The versionsInRange builder method will retrive all transactions which are or were fully known in the given date range
-     * You can specify null as the $from or $to date to get all revisions in that direction of time.
-     * Use ->get() function.
-     */
-    protected function addVersionsInRange(Builder $builder)
+    protected function addVersionsInRange(Builder $builder): void
     {
         $builder->macro('versionsInRange', function (Builder $builder, Carbon|string|null $from = null, Carbon|string|null $to = null) {
-            if (! $from instanceof Carbon) {
-                $from = new Carbon($from);
-            }
-            if (! $to instanceof Carbon) {
-                $to = new Carbon($to);
-            }
-
             $model = $builder->getModel();
 
             $builder->withoutGlobalScope($this);
-            $builder->where($model->getColumnTrxFrom(), '>=', $from);
-            $builder->where($model->getColumnTrxTo(), '<=', $to);
+
+            if (! is_null($from)) {
+                $builder->where($model->getColumnTrxFrom(), '>=', $this->resolveCarbon($from));
+            }
+
+            if (! is_null($to)) {
+                $builder->where($model->getColumnTrxTo(), '<=', $this->resolveCarbon($to));
+            }
 
             return $builder;
         });
     }
 
-    /**
-     * The versionsTouchedRange builder method will retrive all transactions which are or were fully or partially known in the given date range
-     * You can specify null as the $from or $to date to get all revisions in that direction of time.
-     * Use ->get() function.
-     */
-    protected function addVersionsTouchedRange(Builder $builder)
+    protected function addVersionsTouchedRange(Builder $builder): void
     {
         $builder->macro('versionsTouchedRange', function (Builder $builder, Carbon|string|null $from = null, Carbon|string|null $to = null) {
-            if (! $from instanceof Carbon) {
-                $from = new Carbon($from);
-            }
-            if (! $to instanceof Carbon) {
-                $to = new Carbon($to);
-            }
-
             $model = $builder->getModel();
 
             $builder->withoutGlobalScope($this);
 
-            $builder->where($model->getColumnTrxTo(), '>=', $from);
-            $builder->where($model->getColumnTrxFrom(), '<=', $to);
+            if (! is_null($from)) {
+                $builder->where($model->getColumnTrxTo(), '>=', $this->resolveCarbon($from));
+            }
+
+            if (! is_null($to)) {
+                $builder->where($model->getColumnTrxFrom(), '<=', $this->resolveCarbon($to));
+            }
 
             return $builder;
         });
     }
 
-    /**
-     * The latestVersion builder method will constrain latest Entry. This could could be the current or a deleted records
-     * Use this scope only with ->first() function
-     */
-    protected function addLatestVersion(Builder $builder)
+    protected function addLatestVersion(Builder $builder): void
     {
         $builder->macro('latestVersion', function (Builder $builder) {
             $model = $builder->getModel();
 
-            $builder->withoutGlobalScope($this)
+            return $builder->withoutGlobalScope($this)
                 ->latest($model->getColumnTrxTo());
-
-            return $builder;
         });
     }
 
-    /**
-     * Retrive the latest transaction without a following current active version. Finally this tuple has been deleted (not softdeleted).
-     * Use this scope only with ->first() function
-     *
-     * NOT working complex query
-     */
-    // protected function addDeletedVersion(Builder $builder)
-    // {
-    // 	$builder->macro('deletedVersion', function (Builder $builder)
-    // 	{
-    // 		$model = $builder->getModel();
+    private function resolveCarbon(Carbon|string|null $value): ?Carbon
+    {
+        if (is_null($value)) {
+            return null;
+        }
 
-    // 		$builder->withoutGlobalScope($this)
-    // 			->where($model->getColumnTrxTo(), '<' , $model->getMaxTimestamp())
-    //             ->latest($model->getColumnTrxTo());
-
-    // 		return $builder;
-    // 	});
-    // }
+        return $value instanceof Carbon ? $value : new Carbon($value);
+    }
 }
