@@ -36,9 +36,9 @@ class UniTemporalBuilder extends Builder
         ?Grammar $grammar = null,
         ?Processor $processor = null
     ) {
-        $this->columnTrxDateFrom = config('db-temporal.defaults.columnTrxDateFrom') ?? 'trx_date_from';
-        $this->columnTrxDateTo = config('db-temporal.defaults.columnTrxDateTo') ?? 'trx_date_to';
-        $this->maxTimestamp = config('db-temporal.defaults.maxTimestamp');
+        $this->columnTrxDateFrom = 'known_from';
+        $this->columnTrxDateTo = 'known_to';
+        $this->maxTimestamp = '9999-12-31 23:59:59';
 
         parent::__construct($connection, $grammar, $processor);
     }

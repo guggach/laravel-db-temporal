@@ -29,7 +29,7 @@ trait IsUniTemporal
 
         return defined('static::MAX_TIMESTAMP')
             ? static::MAX_TIMESTAMP
-            : ($fromConnection ?? config('db-temporal.defaults.maxTimestamp') ?? '9999-12-31 23:59:59');
+            : ($fromConnection ?? '9999-12-31 23:59:59');
     }
 
     public function getColumnTrxFrom(): string
@@ -38,7 +38,7 @@ trait IsUniTemporal
 
         return defined('static::COLUMN_TRX_DATE_FROM')
             ? static::COLUMN_TRX_DATE_FROM
-            : ($fromConnection ?? config('db-temporal.defaults.columnTrxDateFrom') ?? 'trx_date_from');
+            : ($fromConnection ?? 'known_from');
     }
 
     public function getColumnTrxTo(): string
@@ -47,7 +47,7 @@ trait IsUniTemporal
 
         return defined('static::COLUMN_TRX_DATE_TO')
             ? static::COLUMN_TRX_DATE_TO
-            : ($fromConnection ?? config('db-temporal.defaults.columnTrxDateTo') ?? 'trx_date_to');
+            : ($fromConnection ?? 'known_to');
     }
 
     protected function newBaseQueryBuilder()
@@ -91,8 +91,14 @@ trait IsUniTemporal
             return null;
         }
 
-        $config = $connection->getUniTemporalTableConfig($this->getTable());
+        $tableConfig = $connection->getUniTemporalTableConfig($this->getTable());
 
-        return $config[$key] ?? null;
+        if (isset($tableConfig[$key])) {
+            return $tableConfig[$key];
+        }
+
+        $defaults = $connection->getUniTemporalDefaults();
+
+        return $defaults[$key] ?? null;
     }
 }

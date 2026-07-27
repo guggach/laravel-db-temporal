@@ -11,6 +11,8 @@ class TemporalConnection extends Connection
 
     protected array $uniTemporalTables;
 
+    protected array $uniTemporalDefaults;
+
     public function __construct(Connection $baseConnection, array $config = [])
     {
         $this->baseConnection = $baseConnection;
@@ -28,11 +30,17 @@ class TemporalConnection extends Connection
         $this->setSchemaGrammar($baseConnection->getSchemaGrammar());
 
         $this->uniTemporalTables = $config['uni-temporal']['tables'] ?? [];
+        $this->uniTemporalDefaults = $config['uni-temporal']['defaults'] ?? [];
     }
 
     public function getUniTemporalTableConfig(string $table): ?array
     {
         return $this->uniTemporalTables[$table] ?? null;
+    }
+
+    public function getUniTemporalDefaults(): array
+    {
+        return $this->uniTemporalDefaults;
     }
 
     public function getDriverName(): string
@@ -58,9 +66,15 @@ class TemporalConnection extends Connection
                 $this->getPostProcessor()
             );
 
-            $columnFrom = $tableConfig['column_from'] ?? config('db-temporal.defaults.columnTrxDateFrom');
-            $columnTo = $tableConfig['column_to'] ?? config('db-temporal.defaults.columnTrxDateTo');
-            $maxTimestamp = $tableConfig['max_timestamp'] ?? config('db-temporal.defaults.maxTimestamp');
+            $columnFrom = $tableConfig['column_from']
+                ?? $this->uniTemporalDefaults['column_from']
+                ?? 'known_from';
+            $columnTo = $tableConfig['column_to']
+                ?? $this->uniTemporalDefaults['column_to']
+                ?? 'known_to';
+            $maxTimestamp = $tableConfig['max_timestamp']
+                ?? $this->uniTemporalDefaults['max_timestamp']
+                ?? '9999-12-31 23:59:59';
 
             $temporalQuery->setTemporalColumnNames($columnFrom, $columnTo, $maxTimestamp, false);
             $temporalQuery->from($table, $as);

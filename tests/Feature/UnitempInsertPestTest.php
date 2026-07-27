@@ -69,13 +69,6 @@ it('Override Trx column names in Model and insert one record', function () {
 
 it('Use absolute default column names not configured in config nor model and insert one record', function () {
 
-    // $model = new UniTemporalId();
-
-    $colFrom = config('db-temporal.defaults.columnTrxDateFrom');
-    $colTo = config('db-temporal.defaults.columnTrxDateTo');
-    config()->set('db-temporal.defaults.columnTrxDateFrom', null);
-    config()->set('db-temporal.defaults.columnTrxDateTo', null);
-
     class uniTemporalIdTrxDates extends Model
     {
         use IsUniTemporal;
@@ -87,13 +80,10 @@ it('Use absolute default column names not configured in config nor model and ins
         'text' => 'First Record',
     ]);
 
-    $dbResult = uniTemporalIdTrxDates::find(1)->trx_date_from;
-    expect($result->trx_date_from)->toEqual($dbResult);
+    $dbResult = uniTemporalIdTrxDates::find(1)->known_from;
+    expect($result->known_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_id_trx_dates', ['trx_date_from' => $result->trx_date_from, 'trx_date_to' => $result->trx_date_to, 'id' => 1]);
-
-    config()->set('db-temporal.defaults.columnTrxDateFrom', $colFrom);
-    config()->set('db-temporal.defaults.columnTrxDateTo', $colTo);
+    $this->assertDatabaseHas('uni_temporal_id_trx_dates', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => 1]);
 
 });
 

@@ -44,41 +44,21 @@ gantt
 composer require guggach/laravel-db-temporal
 ```
 
-Publiziere die Konfiguration:
-
-```bash
-php artisan vendor:publish --tag="laravel-db-temporal-config"
-```
-
 ---
 
 ## Konfiguration und Anwendung
 
-Laravel hat zwei Wege wie Datenbanken bearbeitet werden, nämlich **Connection-basiert** (`DB::table()`) und **Eloquent-basiert** (Models). Dieses Paket unterstützt beide Wege. Wenn du nur Eloquent nutzt, kannst du die Connection-Config ignorieren, wobei man dann entweder mit den Standard-Spaltennamen `trx_date_from` / `trx_date_to` arbeitet oder die Column-Namen im Model als Konstanten definiert (siehe unten).
+Laravel hat zwei Wege wie Datenbanken bearbeitet werden, nämlich **Connection-basiert** (`DB::table()`) und **Eloquent-basiert** (Models). Dieses Paket unterstützt beide Wege. Wenn du nur Eloquent nutzt, brauchst du keine Connection-Config – der Trait verwendet automatisch die Standard-Spaltennamen `known_from` / `known_to`. Du kannst die Namen auch im Model überschreiben.
 
 **Warnung!**: Wenn du auf die Connection-basierte Konfiguration verzichtest, dann darfst du `DB::table()` nur auf Tabellen anwenden, die **nicht** temporales Verhalten haben. Die Gefahr ist maximal gross, dass die Historie von temporalen Tabellen zerstört wird.
 
 **Empfehlung:** Definiere die temporalen Tabellen in der Connection-Config, auch wenn du grundsätzlich nur Eloquent nutzt. Dann ist die Historie gesichert. Am besten setzt du die `temporal`-Connection gleich als **Default** – nicht-temporale Tabellen passieren unverändert.
 
-### Package-Config
+### Connection-basiert (`DB::table()`) – empfohlen
 
-`config/db-temporal.php` nach dem Publizieren:
+Die Connection-Config in `config/database.php` definiert, welche Tabellen temporal sind und welche Column-Namen sie verwenden. **Alle nicht gelisteten Tabellen passieren unverändert.**
 
-```php
-return [
-    'defaults' => [
-        'columnTrxDateFrom' => 'known_from',
-        'columnTrxDateTo'   => 'known_to',
-        'maxTimestamp'      => '9999-12-31 23:59:59',
-    ],
-];
-```
-
-### Connection-basiert (`DB::table()`)
-
-Die Database-Funktionen von Laravel müssen wissen, welche Tabellen temporales Verhalten haben und welche Column-Namen dafür genutzt werden. **Alle nicht gelisteten Tabellen passieren unverändert** – sie verhalten sich wie gewohnt ohne Versionierung.
-
-In `config/database.php` eine `temporal-proxy`-Connection anlegen:
+**Einfachster Fall** – nur die Default-Spaltennamen (`known_from` / `known_to`):
 
 ```php
 // config/database.php
@@ -86,25 +66,41 @@ In `config/database.php` eine `temporal-proxy`-Connection anlegen:
 
 'connections' => [
     'temporal' => [
-        'driver'  => 'temporal-proxy',
-        'base'    => 'mysql',          // oder: pgsql, sqlite
-        'host'    => env('DB_HOST'),
-        'port'    => env('DB_PORT'),
-        'database' => env('DB_DATABASE'),
-        'username' => env('DB_USERNAME'),
-        'password' => env('DB_PASSWORD'),
+        'driver' => 'temporal-proxy',
+        'base'   => 'mysql',          // oder: pgsql, sqlite
 
         'uni-temporal' => [
-            'tables' => [
-                'orders' => [
-                    'column_from' => 'known_from',
-                    'column_to'   => 'known_to',
-                ],
-                'invoices' => [
-                    'column_from' => 'sys_from',
-                    'column_to'   => 'sys_to',
-                ],
+            'defaults' => [
+                'column_from' => 'known_from',
+                'column_to'   => 'known_to',
+                'max_timestamp' => '9999-12-31 23:59:59',
             ],
+            'tables' => [
+                'orders' => [],        // verwendet defaults
+                'articles' => [],     // verwendet defaults
+            ],
+        ],
+    ],
+],
+```
+
+`host`, `port`, `database`, `username`, `password` werden von der `base`-Connection übernommen – du brauchst sie hier nicht.
+
+`'orders' => []` (leeres Array) bedeutet: Tabelle ist temporal mit den Default-Namen. Das ist der häufigste Fall.
+
+**Mit abweichenden Column-Namen:**
+
+```php
+'uni-temporal' => [
+    'defaults' => [
+        'column_from' => 'known_from',
+        'column_to'   => 'known_to',
+    ],
+    'tables' => [
+        'orders' => [],                   // known_from / known_to
+        'invoices' => [                   // abweichende Namen
+            'column_from' => 'sys_from',
+            'column_to'   => 'sys_to',
         ],
     ],
 ],
@@ -126,9 +122,9 @@ DB::table('orders')->where('id', 1)->update([
 DB::table('orders')->where('id', 1)->delete();
 ```
 
-### Eloquent-basiert (Model)
+### Eloquent-basiert (Model) – nur Trait
 
-Füge den `IsUniTemporal`-Trait zu deinem Model hinzu:
+Füge den `IsUniTemporal`-Trait zu deinem Model hinzu – ohne Connection-Config verwendest du die Defaults `known_from` / `known_to`:
 
 ```php
 use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
@@ -143,12 +139,12 @@ class Order extends Model
 
 ### Column-Namen Auflösung (Resolver-Kette)
 
-Der Trait und der Builder lesen Column-Namen aus vier Quellen (erster Treffer gewinnt):
+Der Trait und der Builder lesen Column-Namen aus diesen Quellen (erster Treffer gewinnt):
 
 1. **Model-Konstanten**: `COLUMN_TRX_DATE_FROM`, `COLUMN_TRX_DATE_TO`, `MAX_TIMESTAMP`
-2. **Connection-Config**: `uni-temporal.tables.<table>.column_from` (nur mit `temporal-proxy`)
-3. **Package-Config**: `config/db-temporal.php defaults`
-4. **Hardcoded Fallback**: `trx_date_from` / `trx_date_to`
+2. **Table-Config**: `uni-temporal.tables.<table>.column_from` (pro Tabelle in der Connection)
+3. **Connection-Defaults**: `uni-temporal.defaults.column_from`
+4. **Hardcoded Fallback**: `known_from` / `known_to` / `9999-12-31 23:59:59`
 
 ```php
 class Order extends Model

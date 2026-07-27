@@ -11,8 +11,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
     public function configurePackage(Package $package): void
     {
         $package
-            ->name('laravel-db-temporal')
-            ->hasConfigFile('db-temporal');
+            ->name('laravel-db-temporal');
     }
 
     public function boot(): void

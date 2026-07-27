@@ -31,12 +31,12 @@ return new class extends Migration
 
         Schema::create('uni_temporal_id_trx_dates', function (Blueprint $table) {
             $table->unsignedBigInteger('id');
-            $table->dateTime('trx_date_from');
-            $table->dateTime('trx_date_to');
+            $table->dateTime('known_from');
+            $table->dateTime('known_to');
             $table->softDeletes();
             $table->string('text')->nullable();
             $table->timestamps();
-            $table->primary(['id', 'trx_date_from', 'trx_date_to']);
+            $table->primary(['id', 'known_from', 'known_to']);
         });
 
         Schema::create('uni_temporal_ulids', function (Blueprint $table) {

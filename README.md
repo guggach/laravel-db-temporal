@@ -32,7 +32,6 @@ Order::versionAsOf('2024-06-10')->where('id', 1)->get(); // Stand zu einem Zeitp
 
 ```bash
 composer require guggach/laravel-db-temporal
-php artisan vendor:publish --tag="laravel-db-temporal-config"
 ```
 
 ## Testing
