@@ -44,6 +44,20 @@ gantt
 composer require guggach/laravel-db-temporal
 ```
 
+Danach kannst du die `temporal-proxy`-Connection automatisch in deine `config/database.php` einrichten lassen:
+
+```bash
+php artisan temporal:install
+```
+
+Der Befehl liest deine aktuelle Default-Connection (z.B. `mysql`), setzt sie als `base` und wechselt den Default auf `temporal`. Alle nicht-temporalen Tabellen passieren unverändert.
+
+Zum Rückgängigmachen:
+
+```bash
+php artisan temporal:uninstall
+```
+
 ---
 
 ## Konfiguration und Anwendung
@@ -159,7 +173,46 @@ class Order extends Model
 
 ### Datenbank-Schema (Migration)
 
-Temporale Tabellen benötigen einen **zusammengesetzten Primärschlüssel** aus `(id, known_from, known_to)`:
+Das Paket stellt zwei **Blueprint-Makros** für Migrationen bereit:
+
+| Makro | Beschreibung |
+|-------|-------------|
+| `$table->unitemporal()` | Fügt `dateTime`-Spalten für `column_from` und `column_to` aus den Connection-Defaults hinzu |
+| `$table->unitempIndexes($pk = 'id')` | Legt den zusammengesetzten Primärschlüssel `(pk, column_from, column_to)` und einen Index auf `column_to` an |
+
+**Standardfall – einfach und komplett:**
+
+```php
+Schema::create('orders', function (Blueprint $table) {
+    $table->unsignedBigInteger('id');
+    $table->unitemporal();
+    $table->string('product');
+    $table->integer('quantity');
+    $table->timestamps();
+
+    $table->unitempIndexes();
+});
+```
+
+Erzeugt: `known_from datetime`, `known_to datetime`, Primärschlüssel `(id, known_from, known_to)` und Index auf `known_to`.
+
+**Mit abweichendem Primärschlüssel (z.B. UUID):**
+
+```php
+Schema::create('orders', function (Blueprint $table) {
+    $table->uuid('uuid');
+    $table->unitemporal();
+    $table->string('product');
+    $table->integer('quantity');
+    $table->timestamps();
+
+    $table->unitempIndexes('uuid');
+});
+```
+
+**Wichtig:** Verwende `unsignedBigInteger('id')` statt `id()` (auto-increment), da der Primärschlüssel aus drei Spalten besteht. `id()` würde einen eigenen auto-increment-PK setzen, der mit dem composite-PK kollidiert.
+
+#### Ohne Makros (manuell)
 
 ```php
 Schema::create('orders', function (Blueprint $table) {
@@ -171,35 +224,43 @@ Schema::create('orders', function (Blueprint $table) {
     $table->timestamps();
 
     $table->primary(['id', 'known_from', 'known_to']);
-});
-```
-
-#### Column-Typen
-
-| Typ | Empfehlung | Hinweis |
-|-----|-----------|---------|
-| `dateTime` | `known_from`, `known_to` | Sekundengenau, Standard |
-| `timestamp` | Alternative | MySQL konvertiert in UTC, kann bei max-Wert Probleme geben |
-| `dateTimeTz` | Für multi-timezone | Erhöht Komplexität, nur nötig wenn absolute Klarheit |
-
-#### Index-Empfehlungen
-
-```php
-Schema::create('orders', function (Blueprint $table) {
-    // Primärschlüssel (zwingend für temporal)
-    $table->primary(['id', 'known_from', 'known_to']);
-
-    // Scope-Performance: WHERE known_to = max
     $table->index('known_to');
-
-    // Zeitraum-Abfragen: versionsInRange / versionsTouchedRange
-    $table->index(['known_from', 'known_to']);
 });
 ```
-
-Der `known_to`-Index ist besonders wichtig – jeder normale Query hat ein `WHERE known_to = max` durch den Global Scope.
 
 #### Benutzerdefinierte Column-Namen
+
+Die Makros lesen die Defaults aus der Config der **Default-Datenbankverbindung** unter `uni-temporal.defaults`:
+
+```php
+// config/database.php
+'connections' => [
+    'mysql' => [
+        'driver' => 'mysql',
+        // …
+        'uni-temporal' => [
+            'defaults' => [
+                'column_from' => 'sys_from',
+                'column_to'   => 'sys_to',
+                'max_date'    => '9999-12-31 23:59:59',
+            ],
+        ],
+    ],
+],
+```
+
+```php
+Schema::create('invoices', function (Blueprint $table) {
+    $table->unsignedBigInteger('id');
+    $table->unitemporal();
+    // …
+    $table->unitempIndexes();
+});
+```
+
+Erzeugt dann `sys_from datetime`, `sys_to datetime` und den PK `(id, sys_from, sys_to)`.
+
+**Ohne Connection-Defaults** (oder weicht nur eine einzelne Migration ab) die Makros nicht verwenden – manuell schreiben:
 
 ```php
 Schema::create('invoices', function (Blueprint $table) {
@@ -213,6 +274,14 @@ Schema::create('invoices', function (Blueprint $table) {
     $table->index('sys_to');
 });
 ```
+
+#### Column-Typen
+
+| Typ | Empfehlung | Hinweis |
+|-----|-----------|---------|
+| `dateTime` | `known_from`, `known_to` | Sekundengenau, Standard |
+| `timestamp` | Alternative | MySQL konvertiert in UTC, kann bei max-Wert Probleme geben |
+| `dateTimeTz` | Für multi-timezone | Erhöht Komplexität, nur nötig wenn absolute Klarheit |
 
 ---
 

@@ -34,6 +34,18 @@ Order::versionAsOf('2024-06-10')->where('id', 1)->get(); // Stand zu einem Zeitp
 composer require guggach/laravel-db-temporal
 ```
 
+Die `temporal-proxy`-Connection in deiner `config/database.php` einrichten:
+
+```bash
+php artisan temporal:install
+```
+
+Damit wird ein `temporal`-Eintrag in `config/database.php` angelegt, der deine aktuelle Default-Connection als `base` verwendet. Zum Rückgängigmachen:
+
+```bash
+php artisan temporal:uninstall
+```
+
 ## Testing
 
 ```bash
