@@ -143,7 +143,7 @@ class UniTemporalBuilder extends Builder
     public function delete($id = null): int
     {
         if (! is_null($id)) {
-            $this->where($this->from . '.id', '=', $id);
+            $this->where($this->from.'.id', '=', $id);
         }
 
         $this->applyBeforeQueryCallbacks();
