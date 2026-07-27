@@ -38,7 +38,130 @@ gantt
 
 ---
 
-## Tabellen-Schema (Migration)
+## Installation
+
+```bash
+composer require guggach/laravel-db-temporal
+```
+
+Publiziere die Konfiguration:
+
+```bash
+php artisan vendor:publish --tag="laravel-db-temporal-config"
+```
+
+---
+
+## Konfiguration und Anwendung
+
+Laravel hat zwei Wege wie Datenbanken bearbeitet werden, nämlich **Connection-basiert** (`DB::table()`) und **Eloquent-basiert** (Models). Dieses Paket unterstützt beide Wege. Wenn du nur Eloquent nutzt, kannst du die Connection-Config ignorieren, wobei man dann entweder mit den Standard-Spaltennamen `trx_date_from` / `trx_date_to` arbeitet oder die Column-Namen im Model als Konstanten definiert (siehe unten).
+
+**Warnung!**: Wenn du auf die Connection-basierte Konfiguration verzichtest, dann darfst du `DB::table()` nur auf Tabellen anwenden, die **nicht** temporales Verhalten haben. Die Gefahr ist maximal gross, dass die Historie von temporalen Tabellen zerstört wird.
+
+**Empfehlung:** Definiere die temporalen Tabellen in der Connection-Config, auch wenn du grundsätzlich nur Eloquent nutzt. Dann ist die Historie gesichert. Am besten setzt du die `temporal`-Connection gleich als **Default** – nicht-temporale Tabellen passieren unverändert.
+
+### Package-Config
+
+`config/db-temporal.php` nach dem Publizieren:
+
+```php
+return [
+    'defaults' => [
+        'columnTrxDateFrom' => 'known_from',
+        'columnTrxDateTo'   => 'known_to',
+        'maxTimestamp'      => '9999-12-31 23:59:59',
+    ],
+];
+```
+
+### Connection-basiert (`DB::table()`)
+
+Die Database-Funktionen von Laravel müssen wissen, welche Tabellen temporales Verhalten haben und welche Column-Namen dafür genutzt werden. **Alle nicht gelisteten Tabellen passieren unverändert** – sie verhalten sich wie gewohnt ohne Versionierung.
+
+In `config/database.php` eine `temporal-proxy`-Connection anlegen:
+
+```php
+// config/database.php
+'default' => env('DB_CONNECTION', 'temporal'),
+
+'connections' => [
+    'temporal' => [
+        'driver'  => 'temporal-proxy',
+        'base'    => 'mysql',          // oder: pgsql, sqlite
+        'host'    => env('DB_HOST'),
+        'port'    => env('DB_PORT'),
+        'database' => env('DB_DATABASE'),
+        'username' => env('DB_USERNAME'),
+        'password' => env('DB_PASSWORD'),
+
+        'uni-temporal' => [
+            'tables' => [
+                'orders' => [
+                    'column_from' => 'known_from',
+                    'column_to'   => 'known_to',
+                ],
+                'invoices' => [
+                    'column_from' => 'sys_from',
+                    'column_to'   => 'sys_to',
+                ],
+            ],
+        ],
+    ],
+],
+```
+
+**Wichtig:** Nicht-temporale Tabellen (`users`, `password_resets`, `migrations`) werden **nicht versioniert** – sie arbeiten wie gewohnt. Die `temporal`-Connection ist ein Vollersatz für die Standard-Connection.
+
+Jetzt werden `INSERT`, `UPDATE`, `DELETE` auf gelisteten Tabellen automatisch versioniert:
+
+```php
+DB::table('orders')->insert([
+    'product' => 'Widget', 'quantity' => 5
+]);
+
+DB::table('orders')->where('id', 1)->update([
+    'quantity' => 10
+]);
+
+DB::table('orders')->where('id', 1)->delete();
+```
+
+### Eloquent-basiert (Model)
+
+Füge den `IsUniTemporal`-Trait zu deinem Model hinzu:
+
+```php
+use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+
+class Order extends Model
+{
+    use IsUniTemporal;
+
+    public $incrementing = false;
+}
+```
+
+### Column-Namen Auflösung (Resolver-Kette)
+
+Der Trait und der Builder lesen Column-Namen aus vier Quellen (erster Treffer gewinnt):
+
+1. **Model-Konstanten**: `COLUMN_TRX_DATE_FROM`, `COLUMN_TRX_DATE_TO`, `MAX_TIMESTAMP`
+2. **Connection-Config**: `uni-temporal.tables.<table>.column_from` (nur mit `temporal-proxy`)
+3. **Package-Config**: `config/db-temporal.php defaults`
+4. **Hardcoded Fallback**: `trx_date_from` / `trx_date_to`
+
+```php
+class Order extends Model
+{
+    use IsUniTemporal;
+
+    const COLUMN_TRX_DATE_FROM = 'sys_from';
+    const COLUMN_TRX_DATE_TO   = 'sys_to';
+    const MAX_TIMESTAMP        = '9999-12-31 23:59:59';
+}
+```
+
+### Datenbank-Schema (Migration)
 
 Temporale Tabellen benötigen einen **zusammengesetzten Primärschlüssel** aus `(id, known_from, known_to)`:
 
@@ -55,7 +178,7 @@ Schema::create('orders', function (Blueprint $table) {
 });
 ```
 
-### Column-Typen
+#### Column-Typen
 
 | Typ | Empfehlung | Hinweis |
 |-----|-----------|---------|
@@ -63,12 +186,10 @@ Schema::create('orders', function (Blueprint $table) {
 | `timestamp` | Alternative | MySQL konvertiert in UTC, kann bei max-Wert Probleme geben |
 | `dateTimeTz` | Für multi-timezone | Erhöht Komplexität, nur nötig wenn absolute Klarheit |
 
-### Index-Empfehlungen
+#### Index-Empfehlungen
 
 ```php
 Schema::create('orders', function (Blueprint $table) {
-    // ... columns ...
-
     // Primärschlüssel (zwingend für temporal)
     $table->primary(['id', 'known_from', 'known_to']);
 
@@ -82,23 +203,7 @@ Schema::create('orders', function (Blueprint $table) {
 
 Der `known_to`-Index ist besonders wichtig – jeder normale Query hat ein `WHERE known_to = max` durch den Global Scope.
 
-### SoftDeletes + Temporal
-
-```php
-Schema::create('customers', function (Blueprint $table) {
-    $table->unsignedBigInteger('id');
-    $table->dateTime('known_from');
-    $table->dateTime('known_to');
-    $table->string('name');
-    $table->timestamps();
-    $table->softDeletes(); // deleted_at
-
-    $table->primary(['id', 'known_from', 'known_to']);
-    $table->index('known_to');
-});
-```
-
-### Benutzerdefinierte Column-Namen
+#### Benutzerdefinierte Column-Namen
 
 ```php
 Schema::create('invoices', function (Blueprint $table) {
@@ -227,8 +332,6 @@ $version = Order::versionAsOf('2024-06-10')->where('id', 1)->first();
 // Das war am 10. Juni der aktuelle Stand
 ```
 
-Am 10. Juni war Version 2 aktiv (Widget, 10 Stück).
-
 ### Versionen in einem Zeitfenster
 
 **`versionsInRange(from, to)`** – nur Versionen, die *vollständig* im Fenster liegen:
@@ -263,215 +366,6 @@ $first = Order::firstVersion()->where('id', 1)->first();
 
 $last = Order::latestVersion()->where('id', 1)->first();
 // Gadget, 10 Stück – die letzte Version (evtl. gelöscht)
-```
-
----
-
-## SoftDeletes: Zwei Lösch-Konzepte kombiniert
-
-Laravel's `SoftDeletes` und temporales Versioning lassen sich kombinieren:
-
-```php
-use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
-use Illuminate\Database\Eloquent\SoftDeletes;
-
-class Order extends Model
-{
-    use IsUniTemporal;
-    use SoftDeletes;
-}
-```
-
-**Migration:**
-
-```php
-Schema::create('orders', function (Blueprint $table) {
-    $table->unsignedBigInteger('id');
-    $table->dateTime('known_from');
-    $table->dateTime('known_to');
-    $table->string('product');
-    $table->integer('quantity');
-    $table->softDeletes(); // deleted_at
-    $table->timestamps();
-
-    $table->primary(['id', 'known_from', 'known_to']);
-});
-```
-
-### Was passiert bei `$order->delete()`?
-
-Der Soft-Delete durchläuft die **normale temporale Versionierung** – es wird eine neue Version erzeugt:
-
-**Vor dem Löschen (ein Record):**
-
-| id | name | known_from | known_to | deleted_at |
-|----|------|------------|----------|------------|
-| 100 | Muster | 2026-07-25 10:00:00 | 9999-12-31 23:59:59 | null |
-
-**`$customer->delete()` löst aus:**
-
-1. `SoftDeletes` setzt `deleted_at = now()` auf dem Model
-2. Der normale `update()`-Weg wird durchlaufen → temporale Versionierung
-3. Die alte Version wird geschlossen, eine neue Version mit `deleted_at` wird eingefügt
-
-```mermaid
-sequenceDiagram
-    participant App
-    participant Model
-    participant SoftDeletes
-    participant Temporal
-    participant DB
-
-    App->>Model: delete()
-    Model->>SoftDeletes: set deleted_at = now()
-    Model->>Temporal: update() (with deleted_at)
-    Temporal->>DB: close old version (known_to = now-1s)
-    Temporal->>DB: insert new version with deleted_at
-    DB-->>Temporal: done
-    Temporal-->>Model: OK
-    Model-->>App: true
-```
-
-**Resultat in der DB:**
-
-| id | name | known_from | known_to | deleted_at |
-|----|------|------------|----------|------------|
-| 100 | Muster | 2026-07-25 10:00:00 | **2026-08-31 13:59:59** | null |
-| 100 | Muster | **2026-08-31 14:00:00** | 9999-12-31 23:59:59 | **2026-08-31 14:00:00** |
-
-**Zwei Scopes wirken zusammen:**
-- `UniTemporalScope`: `WHERE known_to = max` → Version 2 ist die aktuelle
-- `SoftDeletes`: `WHERE deleted_at IS NULL` → Version 2 ist versteckt
-
-Effekt: Der Kunde ist aus normalen Queries verschwunden, aber die Historie zeigt klar, wann er existierte und wann gelöscht wurde.
-
-```php
-Customer::find(100); // null (SoftDeletes versteckt ihn)
-
-Customer::withTrashed()->find(100);
-// gefunden – aktuellste Version mit deleted_at
-
-Customer::allVersions()->where('id', 100)->get();
-// 2 Records: die aktive Zeit + der gelöschte Zustand
-```
-
----
-
-## Installation
-
-```bash
-composer require guggach/laravel-db-temporal
-```
-
-Publiziere die Konfiguration:
-
-```bash
-php artisan vendor:publish --tag="laravel-db-temporal-config"
-```
-
----
-
-## Konfiguration
-
-Es gibt zwei Wege, temporale Tabellen zu nutzen: **Connection-basiert** (`DB::table()`) und **Eloquent-basiert** (Models).
-
-### Package-Config
-
-`config/db-temporal.php` nach dem Publizieren:
-
-```php
-return [
-    'defaults' => [
-        'columnTrxDateFrom' => 'known_from',
-        'columnTrxDateTo'   => 'known_to',
-        'maxTimestamp'      => '9999-12-31 23:59:59',
-    ],
-];
-```
-
-### Connection-basiert (`DB::table()`)
-
-**Empfehlung:** Setze die `temporal`-Connection als **Default** – nicht-temporale Tabellen passieren unverändert:
-
-```php
-// config/database.php
-'default' => env('DB_CONNECTION', 'temporal'),
-
-'connections' => [
-    'temporal' => [
-        'driver'  => 'temporal-proxy',
-        'base'    => 'mysql',          // oder: pgsql, sqlite
-        'host'    => env('DB_HOST'),
-        'port'    => env('DB_PORT'),
-        'database' => env('DB_DATABASE'),
-        'username' => env('DB_USERNAME'),
-        'password' => env('DB_PASSWORD'),
-
-        'uni-temporal' => [
-            'tables' => [
-                'orders' => [
-                    'column_from' => 'known_from',
-                    'column_to'   => 'known_to',
-                ],
-                'invoices' => [
-                    'column_from' => 'sys_from',
-                    'column_to'   => 'sys_to',
-                ],
-            ],
-        ],
-    ],
-],
-```
-
-**Wichtig:** Nicht-temporale Tabellen (`users`, `password_resets`, `migrations`) werden **nicht versioniert** – sie arbeiten wie gewohnt. Die `temporal`-Connection ist ein Vollersatz für die Standard-Connection.
-
-Jetzt werden `INSERT`, `UPDATE`, `DELETE` auf gelisteten Tabellen automatisch versioniert:
-
-```php
-DB::connection('temporal')->table('orders')->insert([
-    'product' => 'Widget', 'quantity' => 5
-]);
-
-DB::connection('temporal')->table('orders')->where('id', 1)->update([
-    'quantity' => 10
-]);
-
-DB::connection('temporal')->table('orders')->where('id', 1)->delete();
-```
-
-### Eloquent-basiert (Model)
-
-Füge den `IsUniTemporal`-Trait zu deinem Model hinzu:
-
-```php
-use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
-
-class Order extends Model
-{
-    use IsUniTemporal;
-
-    public $incrementing = false;
-}
-```
-
-### Column-Namen Auflösung (Resolver-Kette)
-
-Der Trait und der Builder lesen Column-Namen aus vier Quellen (erster Treffer gewinnt):
-
-1. **Model-Konstanten**: `COLUMN_TRX_DATE_FROM`, `COLUMN_TRX_DATE_TO`, `MAX_TIMESTAMP`
-2. **Connection-Config**: `uni-temporal.tables.<table>.column_from` (nur mit `temporal-proxy`)
-3. **Package-Config**: `config/db-temporal.php defaults`
-4. **Hardcoded Fallback**: `trx_date_from` / `trx_date_to`
-
-```php
-class Order extends Model
-{
-    use IsUniTemporal;
-
-    const COLUMN_TRX_DATE_FROM = 'sys_from';
-    const COLUMN_TRX_DATE_TO   = 'sys_to';
-    const MAX_TIMESTAMP        = '9999-12-31 23:59:59';
-}
 ```
 
 ---
@@ -621,6 +515,96 @@ DB::table('orders')
 
 ---
 
+## SoftDeletes: Zwei Lösch-Konzepte kombiniert
+
+Laravel's `SoftDeletes` und temporales Versioning lassen sich kombinieren:
+
+```php
+use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Order extends Model
+{
+    use IsUniTemporal;
+    use SoftDeletes;
+}
+```
+
+**Migration:**
+
+```php
+Schema::create('orders', function (Blueprint $table) {
+    $table->unsignedBigInteger('id');
+    $table->dateTime('known_from');
+    $table->dateTime('known_to');
+    $table->string('product');
+    $table->integer('quantity');
+    $table->softDeletes(); // deleted_at
+    $table->timestamps();
+
+    $table->primary(['id', 'known_from', 'known_to']);
+});
+```
+
+### Was passiert bei `$order->delete()`?
+
+Der Soft-Delete durchläuft die **normale temporale Versionierung** – es wird eine neue Version erzeugt:
+
+**Vor dem Löschen (ein Record):**
+
+| id | name | known_from | known_to | deleted_at |
+|----|------|------------|----------|------------|
+| 100 | Muster | 2026-07-25 10:00:00 | 9999-12-31 23:59:59 | null |
+
+**`$customer->delete()` löst aus:**
+
+1. `SoftDeletes` setzt `deleted_at = now()` auf dem Model
+2. Der normale `update()`-Weg wird durchlaufen → temporale Versionierung
+3. Die alte Version wird geschlossen, eine neue Version mit `deleted_at` wird eingefügt
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant Model
+    participant SoftDeletes
+    participant Temporal
+    participant DB
+
+    App->>Model: delete()
+    Model->>SoftDeletes: set deleted_at = now()
+    Model->>Temporal: update() (with deleted_at)
+    Temporal->>DB: close old version (known_to = now-1s)
+    Temporal->>DB: insert new version with deleted_at
+    DB-->>Temporal: done
+    Temporal-->>Model: OK
+    Model-->>App: true
+```
+
+**Resultat in der DB:**
+
+| id | name | known_from | known_to | deleted_at |
+|----|------|------------|----------|------------|
+| 100 | Muster | 2026-07-25 10:00:00 | **2026-08-31 13:59:59** | null |
+| 100 | Muster | **2026-08-31 14:00:00** | 9999-12-31 23:59:59 | **2026-08-31 14:00:00** |
+
+**Zwei Scopes wirken zusammen:**
+- `UniTemporalScope`: `WHERE known_to = max` → Version 2 ist die aktuelle
+- `SoftDeletes`: `WHERE deleted_at IS NULL` → Version 2 ist versteckt
+
+Effekt: Der Kunde ist aus normalen Queries verschwunden, aber die Historie zeigt klar, wann er existierte und wann gelöscht wurde.
+
+```php
+Customer::find(100); // null (SoftDeletes versteckt ihn)
+
+Customer::withTrashed()->find(100);
+// gefunden – aktuellste Version mit deleted_at
+
+Customer::allVersions()->where('id', 100)->get();
+// 2 Records: die aktive Zeit + der gelöschte Zustand
+```
+
+---
+
 ## Best Practices
 
 1. **Immer `temporal` als Default-Connection** – nicht-temporale Tabellen passieren unverändert, temporale sind geschützt
@@ -628,6 +612,8 @@ DB::table('orders')
 3. **Index auf `known_to`** – jeder normale Query hat ein `WHERE known_to = max`
 4. **Kein auto-increment bei `insertGetId`** – bei Concurrency-Problemen ULIDs/UUIDs verwenden
 5. **`skipVersioning` nur für Admin-Korrekturen** – nie in der normalen Geschäftslogik
+
+---
 
 ## Ausblick: Bi-Temporal (zwei Zeitachsen)
 
@@ -637,12 +623,12 @@ gantt
     dateFormat  YYYY-MM-DD
     axisFormat  %Y-%m-%d
 
-    section Transaction Time
-    bekannt seit 2024-06-01    :tx, 2024-06-01, 90d
+    section Application Time (fachlich)
+    gültig ab 2024-07-01  :app1, 2024-07-01, 30d
+    gültig ab 2024-08-01  :app2, 2024-08-01, 60d
 
-    section Application Time
-    gültig ab 2024-07-01       :app1, 2024-07-01, 30d
-    gültig ab 2024-08-01       :app2, 2024-08-01, 60d
+    section Transaction Time (System)
+    bekannt seit 2024-06-01 :tx, 2024-06-01, 120d
 ```
 
 Bi-temporales Storage erweitert uni-temporales um eine **zweite, fachliche Zeitachse** (Application Time / Valid Time). Mehr dazu in einer späteren Version.
