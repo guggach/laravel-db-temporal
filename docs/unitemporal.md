@@ -138,12 +138,13 @@ DB::table('orders')->where('id', 1)->delete();
 
 ### Eloquent-basiert (Model) – nur Trait
 
-Füge den `IsUniTemporal`-Trait zu deinem Model hinzu – ohne Connection-Config verwendest du die Defaults `known_from` / `known_to`:
+Füge den `IsUniTemporal`-Trait zu deinem Model hinzu – ohne Connection-Config verwendest du die Defaults `known_from` / `known_to`. Das Model muss zusätzlich das Interface `UniTemporalModel` implementieren, damit die Spalten-Accessor-Methoden vom Typ-System erkannt werden:
 
 ```php
 use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
 
-class Order extends Model
+class Order extends Model implements UniTemporalModel
 {
     use IsUniTemporal;
 
@@ -161,7 +162,10 @@ Der Trait und der Builder lesen Column-Namen aus diesen Quellen (erster Treffer 
 4. **Hardcoded Fallback**: `known_from` / `known_to` / `9999-12-31 23:59:59`
 
 ```php
-class Order extends Model
+use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
+
+class Order extends Model implements UniTemporalModel
 {
     use IsUniTemporal;
 
@@ -586,9 +590,10 @@ Laravel's `SoftDeletes` und temporales Versioning lassen sich kombinieren:
 
 ```php
 use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Order extends Model
+class Order extends Model implements UniTemporalModel
 {
     use IsUniTemporal;
     use SoftDeletes;
