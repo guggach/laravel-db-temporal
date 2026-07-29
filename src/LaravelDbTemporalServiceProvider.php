@@ -2,11 +2,15 @@
 
 namespace Guggach\LaravelDbTemporal;
 
+use Guggach\LaravelDbTemporal\Configuration\TemporalConfig;
 use Guggach\LaravelDbTemporal\Connections\TemporalConnection;
 use Illuminate\Database\Schema\Blueprint;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
+/**
+ * @phpstan-import-type TemporalDefaultsShape from TemporalConfig
+ */
 class LaravelDbTemporalServiceProvider extends PackageServiceProvider
 {
     public function configurePackage(Package $package): void
@@ -22,7 +26,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
         $this->registerSchemaMacros();
 
         $db = $this->app->make('db');
-        $db->extend('temporal-proxy', function ($config, $name) {
+        $db->extend('temporal-proxy', function (array $config, string $name) {
             $baseDriver = $config['base'] ?? 'mysql';
 
             $baseConfig = $config;
@@ -46,36 +50,31 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
     {
         Blueprint::macro('unitemporal', function (): void {
             /** @var Blueprint $this */
-            $defaults = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
-            $columnFrom = is_string($defaults['column_from'] ?? null) ? $defaults['column_from'] : 'known_from';
-            $columnTo = is_string($defaults['column_to'] ?? null) ? $defaults['column_to'] : 'known_to';
-            $this->dateTime($columnFrom);
-            $this->dateTime($columnTo);
+            $config = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
+            $this->dateTime($config->columnFrom);
+            $this->dateTime($config->columnTo);
         });
 
         Blueprint::macro('unitempIndexes', function (string $pk = 'id'): void {
             /** @var Blueprint $this */
-            $defaults = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
-            $columnFrom = is_string($defaults['column_from'] ?? null) ? $defaults['column_from'] : 'known_from';
-            $columnTo = is_string($defaults['column_to'] ?? null) ? $defaults['column_to'] : 'known_to';
-            $this->primary([$pk, $columnFrom, $columnTo]);
-            $this->index([$columnTo, $pk]);
+            $config = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
+            $this->primary([$pk, $config->columnFrom, $config->columnTo]);
+            $this->index([$config->columnTo, $pk]);
         });
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public static function resolveTemporalDefaults(): array
+    public static function resolveTemporalDefaults(): TemporalConfig
     {
         $defaultConnection = config('database.default');
-        $configured = config('database.connections.'.self::stringValue($defaultConnection).'.uni-temporal.defaults', []);
+        $connectionName = is_string($defaultConnection) ? $defaultConnection : '';
 
-        return is_array($configured) ? $configured : [];
-    }
+        $configured = config('database.connections.'.$connectionName.'.uni-temporal.defaults', []);
 
-    private static function stringValue(mixed $value): string
-    {
-        return is_string($value) ? $value : '';
+        if (! is_array($configured)) {
+            return TemporalConfig::fromArray(null);
+        }
+
+        /** @var TemporalDefaultsShape $configured */
+        return TemporalConfig::fromArray($configured);
     }
 }

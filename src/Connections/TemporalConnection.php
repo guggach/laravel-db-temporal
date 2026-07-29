@@ -2,25 +2,28 @@
 
 namespace Guggach\LaravelDbTemporal\Connections;
 
+use Guggach\LaravelDbTemporal\Configuration\TemporalConfig;
 use Guggach\LaravelDbTemporal\Database\Query\UniTemporalBuilder;
 use Illuminate\Database\Connection;
 
+/**
+ * @phpstan-import-type TemporalConfigShape from TemporalConfig
+ * @phpstan-import-type TemporalTablesShape from TemporalConfig
+ * @phpstan-import-type TemporalConnectionConfigShape from TemporalConfig
+ */
 class TemporalConnection extends Connection
 {
     protected Connection $baseConnection;
 
-    /**
-     * @var array<string, array<string, mixed>>
-     */
-    protected array $uniTemporalTables = [];
+    protected TemporalConfig $defaultConfig;
 
     /**
-     * @var array<string, mixed>
+     * @var TemporalTablesShape
      */
-    protected array $uniTemporalDefaults = [];
+    protected array $tableConfigs = [];
 
     /**
-     * @param  array<string, mixed>  $config
+     * @param  TemporalConnectionConfigShape  $config
      */
     public function __construct(Connection $baseConnection, array $config = [])
     {
@@ -30,7 +33,7 @@ class TemporalConnection extends Connection
             $baseConnection->getPdo(),
             $baseConnection->getDatabaseName(),
             $baseConnection->getTablePrefix(),
-            $config
+            $config,
         );
 
         $this->readPdo = $baseConnection->getReadPdo();
@@ -38,29 +41,24 @@ class TemporalConnection extends Connection
         $this->setPostProcessor($baseConnection->getPostProcessor());
         $this->setSchemaGrammar($baseConnection->getSchemaGrammar());
 
-        $uniTemporal = is_array($config['uni-temporal'] ?? null) ? $config['uni-temporal'] : [];
-        /** @var array<string, array<string, mixed>> $tables */
-        $tables = is_array($uniTemporal['tables'] ?? null) ? $uniTemporal['tables'] : [];
-        $this->uniTemporalTables = $tables;
-        /** @var array<string, mixed> $defaults */
-        $defaults = is_array($uniTemporal['defaults'] ?? null) ? $uniTemporal['defaults'] : [];
-        $this->uniTemporalDefaults = $defaults;
+        $this->defaultConfig = TemporalConfig::fromArray($config['uni-temporal']['defaults'] ?? null);
+        $this->tableConfigs = $config['uni-temporal']['tables'] ?? [];
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @phpstan-import-type TemporalTablesShape from TemporalConfig
+     * @phpstan-import-type TemporalConnectionConfigShape from TemporalConfig
      */
-    public function getUniTemporalTableConfig(string $table): ?array
+    public function getUniTemporalTableConfig(string $table): ?TemporalConfig
     {
-        return $this->uniTemporalTables[$table] ?? null;
+        return isset($this->tableConfigs[$table])
+            ? TemporalConfig::fromArray($this->tableConfigs[$table])
+            : null;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function getUniTemporalDefaults(): array
+    public function getUniTemporalDefaults(): TemporalConfig
     {
-        return $this->uniTemporalDefaults;
+        return $this->defaultConfig;
     }
 
     public function getDriverName(): string
@@ -81,7 +79,9 @@ class TemporalConnection extends Connection
 
         $query = parent::table($table, $as);
 
-        $tableConfig = $this->uniTemporalTables[$table] ?? null;
+        $tableConfig = isset($this->tableConfigs[$table])
+            ? TemporalConfig::fromArray($this->tableConfigs[$table])
+            : null;
 
         if ($tableConfig !== null) {
             $temporalQuery = new UniTemporalBuilder(
@@ -90,27 +90,12 @@ class TemporalConnection extends Connection
                 $this->getPostProcessor()
             );
 
-            $columnFrom = $this->stringValue($tableConfig['column_from']
-                ?? $this->uniTemporalDefaults['column_from']
-                ?? 'known_from');
-            $columnTo = $this->stringValue($tableConfig['column_to']
-                ?? $this->uniTemporalDefaults['column_to']
-                ?? 'known_to');
-            $maxTimestamp = $this->stringValue($tableConfig['max_timestamp']
-                ?? $this->uniTemporalDefaults['max_timestamp']
-                ?? '9999-12-31 23:59:59');
-
-            $temporalQuery->setTemporalColumnNames($columnFrom, $columnTo, $maxTimestamp, false);
+            $temporalQuery->setTemporalConfig($tableConfig);
             $temporalQuery->from($table, $as);
 
             return $temporalQuery;
         }
 
         return $query;
-    }
-
-    private function stringValue(mixed $value): string
-    {
-        return is_string($value) ? $value : '';
     }
 }

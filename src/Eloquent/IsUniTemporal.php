@@ -2,6 +2,7 @@
 
 namespace Guggach\LaravelDbTemporal\Eloquent;
 
+use Guggach\LaravelDbTemporal\Configuration\TemporalConfig;
 use Guggach\LaravelDbTemporal\Connections\TemporalConnection;
 use Guggach\LaravelDbTemporal\Database\Query\UniTemporalBuilder;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,32 +26,20 @@ trait IsUniTemporal
 
     public function getMaxTimestamp(): string
     {
-        $fromConnection = $this->getTemporalConfigValue('max_timestamp');
-
-        return defined('static::MAX_TIMESTAMP')
-            ? static::MAX_TIMESTAMP
-            : ($fromConnection ?? '9999-12-31 23:59:59');
+        return $this->resolveTemporalConfig()->maxTimestamp;
     }
 
     public function getColumnTrxFrom(): string
     {
-        $fromConnection = $this->getTemporalConfigValue('column_from');
-
-        return defined('static::COLUMN_TRX_DATE_FROM')
-            ? static::COLUMN_TRX_DATE_FROM
-            : ($fromConnection ?? 'known_from');
+        return $this->resolveTemporalConfig()->columnFrom;
     }
 
     public function getColumnTrxTo(): string
     {
-        $fromConnection = $this->getTemporalConfigValue('column_to');
-
-        return defined('static::COLUMN_TRX_DATE_TO')
-            ? static::COLUMN_TRX_DATE_TO
-            : ($fromConnection ?? 'known_to');
+        return $this->resolveTemporalConfig()->columnTo;
     }
 
-    protected function newBaseQueryBuilder()
+    protected function newBaseQueryBuilder(): UniTemporalBuilder
     {
         $connection = $this->getConnection();
 
@@ -60,12 +49,7 @@ trait IsUniTemporal
             $connection->getPostProcessor()
         );
 
-        $query->setTemporalColumnNames(
-            $this->getColumnTrxFrom(),
-            $this->getColumnTrxTo(),
-            $this->getMaxTimestamp(),
-            true
-        );
+        $query->setTemporalConfig($this->resolveTemporalConfig(), calledByEloquent: true);
 
         return $query;
     }
@@ -74,8 +58,12 @@ trait IsUniTemporal
     {
         $this->setTransactionTimestamps();
 
-        if (! $this->getIncrementing() && ! $this->usesUniqueIds() && is_null($this->getAttribute($this->getKeyName()))) {
-            $this->setAttribute($this->getKeyName(), ($query->max($this->getKeyName()) ?? 0) + 1);
+        $keyName = $this->getKeyName();
+        if (! $this->getIncrementing() && ! $this->usesUniqueIds() && is_null($this->getAttribute($keyName))) {
+            $max = $query->max($keyName);
+            /** @var int|float|string|null $max */
+            $nextId = (is_numeric($max) ? (int) $max : 0) + 1;
+            $this->setAttribute($keyName, $nextId);
         }
 
         return parent::performInsert($query);
@@ -87,22 +75,32 @@ trait IsUniTemporal
         $this->setAttribute($this->getColumnTrxTo(), $this->getMaxTimestamp());
     }
 
-    private function getTemporalConfigValue(string $key): ?string
+    private function resolveTemporalConfig(): TemporalConfig
+    {
+        $base = $this->loadBaseTemporalConfig();
+
+        return $base->withOverrides(
+            columnFrom: $this->constantIfDefined('COLUMN_TRX_DATE_FROM'),
+            columnTo: $this->constantIfDefined('COLUMN_TRX_DATE_TO'),
+            maxTimestamp: $this->constantIfDefined('MAX_TIMESTAMP'),
+        );
+    }
+
+    private function loadBaseTemporalConfig(): TemporalConfig
     {
         $connection = $this->getConnection();
 
         if (! $connection instanceof TemporalConnection) {
-            return null;
+            return TemporalConfig::fromArray(null);
         }
 
         $tableConfig = $connection->getUniTemporalTableConfig($this->getTable());
 
-        if (isset($tableConfig[$key])) {
-            return $tableConfig[$key];
-        }
+        return $tableConfig ?? $connection->getUniTemporalDefaults();
+    }
 
-        $defaults = $connection->getUniTemporalDefaults();
-
-        return $defaults[$key] ?? null;
+    private function constantIfDefined(string $name): ?string
+    {
+        return defined('static::'.$name) ? constant('static::'.$name) : null;
     }
 }
