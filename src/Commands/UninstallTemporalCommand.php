@@ -22,6 +22,12 @@ class UninstallTemporalCommand extends Command
 
         $content = file_get_contents($path);
 
+        if ($content === false) {
+            $this->components->error('Unable to read config/database.php.');
+
+            return self::FAILURE;
+        }
+
         if (! str_contains($content, "'temporal' => [")) {
             $this->components->warn('No temporal connection found in config/database.php.');
 
@@ -118,6 +124,6 @@ class UninstallTemporalCommand extends Command
     {
         $pattern = "/('default'\s*=>\s*env\s*\(\s*'DB_CONNECTION'\s*,\s*)'[^']*'(\s*\)\s*,)/";
 
-        return preg_replace($pattern, "$1'{$newDefault}'$2", $content);
+        return preg_replace($pattern, "$1'{$newDefault}'$2", $content) ?? $content;
     }
 }

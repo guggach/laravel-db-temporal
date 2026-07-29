@@ -3,6 +3,7 @@
 namespace Guggach\LaravelDbTemporal\Database\Query;
 
 use Carbon\Carbon;
+use DateTime;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\Grammar;
@@ -34,7 +35,7 @@ class UniTemporalBuilder extends Builder
     public function __construct(
         ConnectionInterface $connection,
         ?Grammar $grammar = null,
-        ?Processor $processor = null
+        ?Processor $processor = null,
     ) {
         $this->columnTrxDateFrom = 'known_from';
         $this->columnTrxDateTo = 'known_to';
@@ -47,7 +48,7 @@ class UniTemporalBuilder extends Builder
         ?string $columnTrxDateFrom = null,
         ?string $columnTrxDateTo = null,
         ?string $maxTimestamp = null,
-        bool $calledByEloquent = false
+        bool $calledByEloquent = false,
     ): void {
         $this->columnTrxDateFrom = $columnTrxDateFrom ?? $this->columnTrxDateFrom;
         $this->columnTrxDateTo = $columnTrxDateTo ?? $this->columnTrxDateTo;
@@ -55,9 +56,12 @@ class UniTemporalBuilder extends Builder
         $this->calledByEloquent = $calledByEloquent;
     }
 
+    /**
+     * @param  array<int|string, mixed>  $values
+     */
     public function insert(array $values): bool
     {
-        if (empty($values)) {
+        if ($values === []) {
             return true;
         }
 
@@ -65,18 +69,23 @@ class UniTemporalBuilder extends Builder
             $values = [$values];
         }
 
-        foreach ($values as $key => $value) {
-            ksort($value);
-            $values[$key] = $value;
+        /** @var array<int, array<string, mixed>> $records */
+        $records = [];
+        foreach ($values as $key => $record) {
+            if (is_array($record)) {
+                /** @var array<string, mixed> $record */
+                ksort($record);
+                $records[$key] = $record;
+            }
         }
 
-        $values = $this->setTransactionTimestamp($values);
+        $values = $this->setTransactionTimestamp($records);
 
         $this->applyBeforeQueryCallbacks();
 
         return $this->connection->insert(
             $this->grammar->compileInsert($this, $values),
-            $this->cleanBindings(Arr::flatten($values, 1))
+            $this->cleanBindings(Arr::flatten($values, 1)),
         );
     }
 
@@ -86,12 +95,13 @@ class UniTemporalBuilder extends Builder
 
         $sequence = $sequence ?? 'id';
 
-        $newId = ($this->max($sequence) ?? 0) + 1;
+        $max = $this->max($sequence);
+        $newId = (is_numeric($max) ? (int) $max : 0) + 1;
 
         $values[$sequence] = $newId;
 
         if (! isset($values[$this->columnTrxDateFrom])) {
-            $values[$this->columnTrxDateFrom] = (new \DateTime)->format('Y-m-d H:i:s');
+            $values[$this->columnTrxDateFrom] = (new DateTime)->format('Y-m-d H:i:s');
         }
 
         if (! isset($values[$this->columnTrxDateTo])) {
@@ -100,7 +110,7 @@ class UniTemporalBuilder extends Builder
 
         return $this->connection->insert(
             $this->grammar->compileInsert($this, [$values]),
-            $this->cleanBindings(Arr::flatten([$values], 1))
+            $this->cleanBindings(Arr::flatten([$values], 1)),
         ) ? $newId : 0;
     }
 
@@ -152,7 +162,8 @@ class UniTemporalBuilder extends Builder
     public function delete($id = null): int
     {
         if (! is_null($id)) {
-            $this->where($this->from.'.id', '=', $id);
+            $from = is_string($this->from) ? $this->from : '';
+            $this->where($from.'.id', '=', $id);
         }
 
         $this->applyBeforeQueryCallbacks();
@@ -164,14 +175,19 @@ class UniTemporalBuilder extends Builder
         return parent::update([$this->columnTrxDateTo => $now->subSecond()->format('Y-m-d H:i:s')]);
     }
 
+    /**
+     * @param  array<int|string, array<string, mixed>>  $values
+     * @return array<int|string, array<string, mixed>>
+     */
     protected function setTransactionTimestamp(array $values): array
     {
         if ($this->calledByEloquent === false) {
-            $timestamp = (new \DateTime)->format('Y-m-d H:i:s');
+            $timestamp = (new DateTime)->format('Y-m-d H:i:s');
 
-            for ($i = 0; $i < count($values); $i++) {
-                $values[$i][$this->columnTrxDateFrom] = $timestamp;
-                $values[$i][$this->columnTrxDateTo] = $this->maxTimestamp;
+            foreach ($values as $key => $value) {
+                $value[$this->columnTrxDateFrom] = $timestamp;
+                $value[$this->columnTrxDateTo] = $this->maxTimestamp;
+                $values[$key] = $value;
             }
         }
 

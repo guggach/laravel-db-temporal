@@ -21,8 +21,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
 
         $this->registerSchemaMacros();
 
-        $db = $this->app['db'];
-
+        $db = $this->app->make('db');
         $db->extend('temporal-proxy', function ($config, $name) {
             $baseDriver = $config['base'] ?? 'mysql';
 
@@ -30,7 +29,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
             $baseConfig['driver'] = $baseDriver;
             unset($baseConfig['base'], $baseConfig['uni-temporal'], $baseConfig['bi-temporal']);
 
-            $baseConnection = $this->app['db.factory']->make($baseConfig, $name);
+            $baseConnection = $this->app->make('db.factory')->make($baseConfig, $name);
 
             return new TemporalConnection($baseConnection, $config);
         });
@@ -47,20 +46,36 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
     {
         Blueprint::macro('unitemporal', function (): void {
             /** @var Blueprint $this */
-            $defaults = config('database.connections.'.config('database.default').'.uni-temporal.defaults', []);
-            $columnFrom = $defaults['column_from'] ?? 'known_from';
-            $columnTo = $defaults['column_to'] ?? 'known_to';
+            $defaults = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
+            $columnFrom = is_string($defaults['column_from'] ?? null) ? $defaults['column_from'] : 'known_from';
+            $columnTo = is_string($defaults['column_to'] ?? null) ? $defaults['column_to'] : 'known_to';
             $this->dateTime($columnFrom);
             $this->dateTime($columnTo);
         });
 
         Blueprint::macro('unitempIndexes', function (string $pk = 'id'): void {
             /** @var Blueprint $this */
-            $defaults = config('database.connections.'.config('database.default').'.uni-temporal.defaults', []);
-            $columnFrom = $defaults['column_from'] ?? 'known_from';
-            $columnTo = $defaults['column_to'] ?? 'known_to';
+            $defaults = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
+            $columnFrom = is_string($defaults['column_from'] ?? null) ? $defaults['column_from'] : 'known_from';
+            $columnTo = is_string($defaults['column_to'] ?? null) ? $defaults['column_to'] : 'known_to';
             $this->primary([$pk, $columnFrom, $columnTo]);
             $this->index([$columnTo, $pk]);
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function resolveTemporalDefaults(): array
+    {
+        $defaultConnection = config('database.default');
+        $configured = config('database.connections.'.self::stringValue($defaultConnection).'.uni-temporal.defaults', []);
+
+        return is_array($configured) ? $configured : [];
+    }
+
+    private static function stringValue(mixed $value): string
+    {
+        return is_string($value) ? $value : '';
     }
 }

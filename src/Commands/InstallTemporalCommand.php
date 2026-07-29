@@ -22,6 +22,12 @@ class InstallTemporalCommand extends Command
 
         $content = file_get_contents($path);
 
+        if ($content === false) {
+            $this->components->error('Unable to read config/database.php.');
+
+            return self::FAILURE;
+        }
+
         if (str_contains($content, "'temporal' => [")) {
             $this->components->warn('The temporal connection already exists in config/database.php.');
 
@@ -37,6 +43,13 @@ class InstallTemporalCommand extends Command
         }
 
         $stub = file_get_contents(__DIR__.'/../../stubs/config/database-temporal.stub');
+
+        if ($stub === false) {
+            $this->components->error('Unable to read temporal stub file.');
+
+            return self::FAILURE;
+        }
+
         $stub = str_replace('${BASE_CONNECTION}', $base, $stub);
 
         $content = $this->updateDefault($content, $base, 'temporal');
@@ -69,7 +82,7 @@ class InstallTemporalCommand extends Command
     {
         $pattern = "/('default'\s*=>\s*env\s*\(\s*'DB_CONNECTION'\s*,\s*)'[^']*'(\s*\)\s*,)/";
 
-        return preg_replace($pattern, "$1'{$newDefault}'$2", $content);
+        return preg_replace($pattern, "$1'{$newDefault}'$2", $content) ?? $content;
     }
 
     private function addConnection(string $content, string $connectionBlock): string
