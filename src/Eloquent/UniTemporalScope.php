@@ -6,9 +6,10 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
- * @template TModel of \Illuminate\Database\Eloquent\Model
+ * @template TModel of \Illuminate\Database\Eloquent\Model&\Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel
  */
 class UniTemporalScope implements Scope
 {
@@ -27,7 +28,8 @@ class UniTemporalScope implements Scope
     ];
 
     /**
-     * @param  Builder<TModel>  $builder
+     * @param  Builder<Model>  $builder
+     * @param  Model&UniTemporalModel  $model
      */
     public function apply(Builder $builder, Model $model): void
     {
@@ -245,7 +247,7 @@ class UniTemporalScope implements Scope
         $model = $builder->getModel();
 
         $builder->withoutGlobalScope($this)
-            ->whereNotExists(function ($query) use ($model) {
+            ->whereNotExists(function (QueryBuilder $query) use ($model) {
                 $query->selectRaw('1')
                     ->from($model->getTable(), 'sub')
                     ->whereColumn('sub.' . $model->getKeyName(), $model->getTable() . '.' . $model->getKeyName())

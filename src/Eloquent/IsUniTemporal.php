@@ -7,6 +7,10 @@ use Guggach\LaravelDbTemporal\Connections\TemporalConnection;
 use Guggach\LaravelDbTemporal\Database\Query\UniTemporalBuilder;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * @phpstan-require-extends \Illuminate\Database\Eloquent\Model
+ * @phpstan-require-implements \Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel
+ */
 trait IsUniTemporal
 {
     public static function bootIsUniTemporal(): void

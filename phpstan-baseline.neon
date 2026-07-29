@@ -5,21 +5,3 @@ parameters:
 			identifier: trait.unused
 			count: 1
 			path: src/Eloquent/IsUniTemporal.php
-
-		-
-			message: '#^Call to an undefined method TModel of Illuminate\\Database\\Eloquent\\Model\:\:getColumnTrxFrom\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: src/Eloquent/UniTemporalScope.php
-
-		-
-			message: '#^Call to an undefined method TModel of Illuminate\\Database\\Eloquent\\Model\:\:getColumnTrxTo\(\)\.$#'
-			identifier: method.notFound
-			count: 10
-			path: src/Eloquent/UniTemporalScope.php
-
-		-
-			message: '#^Call to an undefined method TModel of Illuminate\\Database\\Eloquent\\Model\:\:getMaxTimestamp\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: src/Eloquent/UniTemporalScope.php

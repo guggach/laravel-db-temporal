@@ -26,6 +26,7 @@ use Guggach\LaravelDbTemporal\Database\Query\UniTemporalBuilder;
  *         defaults?: TemporalDefaultsShape,
  *         tables?: TemporalTablesShape,
  *     },
+ *     bi-temporal?: array<string, mixed>,
  * }
  */
 final readonly class TemporalConfig

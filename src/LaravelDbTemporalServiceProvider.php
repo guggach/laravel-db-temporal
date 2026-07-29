@@ -10,6 +10,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 /**
  * @phpstan-import-type TemporalDefaultsShape from TemporalConfig
+ * @phpstan-import-type TemporalConnectionConfigShape from TemporalConfig
  */
 class LaravelDbTemporalServiceProvider extends PackageServiceProvider
 {
@@ -27,6 +28,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
 
         $db = $this->app->make('db');
         $db->extend('temporal-proxy', function (array $config, string $name) {
+            /** @var TemporalConnectionConfigShape $config */
             $baseDriver = $config['base'] ?? 'mysql';
 
             $baseConfig = $config;

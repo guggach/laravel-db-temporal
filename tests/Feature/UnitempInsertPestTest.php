@@ -1,6 +1,7 @@
 <?php
 
 use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
 use Guggach\LaravelDbTemporal\Tests\Models\UniTemporalId;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -66,7 +67,7 @@ it('Override Trx column names in Model and insert one record', function () {
 
     // $model = new UniTemporalId();
 
-    class uniTemporalIdBelives extends Model
+    class uniTemporalIdBelives extends Model implements UniTemporalModel
     {
         use IsUniTemporal;
 
@@ -90,7 +91,7 @@ it('Override Trx column names in Model and insert one record', function () {
 
 it('Use absolute default column names not configured in config nor model and insert one record', function () {
 
-    class uniTemporalIdTrxDates extends Model
+    class uniTemporalIdTrxDates extends Model implements UniTemporalModel
     {
         use IsUniTemporal;
 
@@ -109,7 +110,7 @@ it('Use absolute default column names not configured in config nor model and ins
 });
 
 it('insert first record with model using $incrementing = false (non-ULID)', function () {
-    class UniTemporalNonIncrementing extends Model
+    class UniTemporalNonIncrementing extends Model implements UniTemporalModel
     {
         use IsUniTemporal;
 
@@ -129,7 +130,7 @@ it('insert first record with model using $incrementing = false (non-ULID)', func
 });
 
 it('auto-increments correctly with model using $incrementing = false', function () {
-    class UniTemporalNonInc extends Model
+    class UniTemporalNonInc extends Model implements UniTemporalModel
     {
         use IsUniTemporal;
 
@@ -153,7 +154,7 @@ it('Table with Ulid key instead of autoincrement key and insert two records', fu
 
     // $model = new UniTemporalId();
 
-    class UniTemporalUlids extends Model
+    class UniTemporalUlids extends Model implements UniTemporalModel
     {
         use HasUlids;
         use IsUniTemporal;
