@@ -93,6 +93,71 @@ it('test db seed', function () {
 
 });
 
+it('deletedSince returns only records without a current version', function () {
+    $t = 'uni_temporal_ids';
+
+    // Record 1: has current version (active)
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 1, 'known_from' => '2024-01-01 00:00:00', 'known_to' => '9999-12-31 23:59:59', 'text' => 'active',
+    ]);
+
+    // Record 2: deleted (no current version, deletion at 2024-06-15)
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 2, 'known_from' => '2024-01-01 00:00:00', 'known_to' => '2024-06-15 12:00:00', 'text' => 'deleted-1',
+    ]);
+
+    // Record 3: deleted (no current version, deletion at 2024-08-01)
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 3, 'known_from' => '2024-03-01 00:00:00', 'known_to' => '2024-08-01 10:00:00', 'text' => 'deleted-2',
+    ]);
+
+    $result = UniTemporalId::deletedSince()->get();
+
+    expect($result->count())->toBe(2);
+    expect($result->pluck('id')->toArray())->toEqualCanonicalizing([2, 3]);
+});
+
+it('deletedSince filters by date', function () {
+    $t = 'uni_temporal_ids';
+
+    // Record 1: active
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 1, 'known_from' => '2024-01-01 00:00:00', 'known_to' => '9999-12-31 23:59:59', 'text' => 'active',
+    ]);
+
+    // Record 2: deleted on 2024-06-15
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 2, 'known_from' => '2024-01-01 00:00:00', 'known_to' => '2024-06-15 12:00:00', 'text' => 'deleted-june',
+    ]);
+
+    // Record 3: deleted on 2024-08-01
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 3, 'known_from' => '2024-03-01 00:00:00', 'known_to' => '2024-08-01 10:00:00', 'text' => 'deleted-aug',
+    ]);
+
+    // Record 4: deleted on 2024-09-01
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 4, 'known_from' => '2024-03-01 00:00:00', 'known_to' => '2024-09-01 08:00:00', 'text' => 'deleted-sep',
+    ]);
+
+    $result = UniTemporalId::deletedSince('2024-07-01')->get();
+
+    expect($result->count())->toBe(2);
+    expect($result->pluck('id')->toArray())->toEqualCanonicalizing([3, 4]);
+});
+
+it('deletedSince returns empty when no records are deleted', function () {
+    $t = 'uni_temporal_ids';
+
+    DB::connection('sqlite-test')->table($t)->insert([
+        'id' => 1, 'known_from' => '2024-01-01 00:00:00', 'known_to' => '9999-12-31 23:59:59', 'text' => 'active',
+    ]);
+
+    $result = UniTemporalId::deletedSince()->get();
+
+    expect($result->isEmpty())->toBeTrue();
+});
+
 // it('insert a record, retrive model and delete it', function(){
 
 //     $result = UniTemporalId::create([

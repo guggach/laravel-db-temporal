@@ -178,7 +178,7 @@ Das Paket stellt zwei **Blueprint-Makros** für Migrationen bereit:
 | Makro | Beschreibung |
 |-------|-------------|
 | `$table->unitemporal()` | Fügt `dateTime`-Spalten für `column_from` und `column_to` aus den Connection-Defaults hinzu |
-| `$table->unitempIndexes($pk = 'id')` | Legt den zusammengesetzten Primärschlüssel `(pk, column_from, column_to)` und einen Index auf `column_to` an |
+| `$table->unitempIndexes($pk = 'id')` | Legt den zusammengesetzten Primärschlüssel `(pk, column_from, column_to)` und einen Composite-Index auf `(column_to, pk)` an |
 
 **Standardfall – einfach und komplett:**
 
@@ -194,7 +194,7 @@ Schema::create('orders', function (Blueprint $table) {
 });
 ```
 
-Erzeugt: `known_from datetime`, `known_to datetime`, Primärschlüssel `(id, known_from, known_to)` und Index auf `known_to`.
+Erzeugt: `known_from datetime`, `known_to datetime`, Primärschlüssel `(id, known_from, known_to)` und Composite-Index auf `(known_to, id)`.
 
 **Mit abweichendem Primärschlüssel (z.B. UUID):**
 
@@ -224,7 +224,7 @@ Schema::create('orders', function (Blueprint $table) {
     $table->timestamps();
 
     $table->primary(['id', 'known_from', 'known_to']);
-    $table->index('known_to');
+    $table->index(['known_to', 'id']);
 });
 ```
 
@@ -271,7 +271,7 @@ Schema::create('invoices', function (Blueprint $table) {
     $table->timestamps();
 
     $table->primary(['id', 'sys_from', 'sys_to']);
-    $table->index('sys_to');
+    $table->index(['sys_to', 'id']);
 });
 ```
 
@@ -674,7 +674,7 @@ Customer::allVersions()->where('id', 100)->get();
 
 1. **Immer `temporal` als Default-Connection** – nicht-temporale Tabellen passieren unverändert, temporale sind geschützt
 2. **Primärschlüssel = `(id, known_from, known_to)`** – die Kombination garantiert Eindeutigkeit
-3. **Index auf `known_to`** – jeder normale Query hat ein `WHERE known_to = max`
+3. **Composite-Index auf `(known_to, id)`** – deckt `WHERE known_to = max` und `find($id)` optimal ab
 4. **Kein auto-increment bei `insertGetId`** – bei Concurrency-Problemen ULIDs/UUIDs verwenden
 5. **`skipVersioning` nur für Admin-Korrekturen** – nie in der normalen Geschäftslogik
 

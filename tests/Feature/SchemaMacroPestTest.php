@@ -21,7 +21,7 @@ it('unitemporal macro adds known_from and known_to columns', function () {
     $indexes = DB::select("SELECT * FROM sqlite_master WHERE type = 'index' AND tbl_name = 'schema_macro_test'");
     $indexNames = array_map(fn ($i) => $i->name, $indexes);
 
-    expect($indexNames)->toContain('schema_macro_test_known_to_index');
+    expect($indexNames)->toContain('schema_macro_test_known_to_id_index');
 });
 
 it('unitemporal works with custom id column name', function () {

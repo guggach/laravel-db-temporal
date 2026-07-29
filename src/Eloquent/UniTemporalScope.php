@@ -17,6 +17,7 @@ class UniTemporalScope implements Scope
         'VersionsInRange',
         'VersionsTouchedRange',
         'LatestVersion',
+        'DeletedSince',
     ];
 
     public function apply(Builder $builder, Model $model): void
@@ -117,6 +118,26 @@ class UniTemporalScope implements Scope
             $model = $builder->getModel();
 
             return $builder->withoutGlobalScope($this)
+                ->latest($model->getColumnTrxTo());
+        });
+    }
+
+    protected function addDeletedSince(Builder $builder): void
+    {
+        $builder->macro('deletedSince', function (Builder $builder, Carbon|string|null $datetime = null) {
+            $datetime = $this->resolveCarbon($datetime);
+
+            $model = $builder->getModel();
+
+            return $builder->withoutGlobalScope($this)
+                ->whereNotExists(function ($query) use ($model) {
+                    $query->selectRaw('1')
+                        ->from($model->getTable(), 'sub')
+                        ->whereColumn('sub.' . $model->getKeyName(), $model->getTable() . '.' . $model->getKeyName())
+                        ->where('sub.' . $model->getColumnTrxTo(), $model->getMaxTimestamp())
+                        ->limit(1);
+                })
+                ->when($datetime, fn ($q) => $q->where($model->getColumnTrxTo(), '>=', $datetime))
                 ->latest($model->getColumnTrxTo());
         });
     }

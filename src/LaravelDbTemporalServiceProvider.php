@@ -60,7 +60,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
             $columnFrom = $defaults['column_from'] ?? 'known_from';
             $columnTo = $defaults['column_to'] ?? 'known_to';
             $this->primary([$pk, $columnFrom, $columnTo]);
-            $this->index($columnTo);
+            $this->index([$columnTo, $pk]);
         });
     }
 }

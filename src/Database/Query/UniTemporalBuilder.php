@@ -90,9 +90,18 @@ class UniTemporalBuilder extends Builder
 
         $values[$sequence] = $newId;
 
-        $this->insert($values);
+        if (! isset($values[$this->columnTrxDateFrom])) {
+            $values[$this->columnTrxDateFrom] = (new \DateTime)->format('Y-m-d H:i:s');
+        }
 
-        return $newId;
+        if (! isset($values[$this->columnTrxDateTo])) {
+            $values[$this->columnTrxDateTo] = $this->maxTimestamp;
+        }
+
+        return $this->connection->insert(
+            $this->grammar->compileInsert($this, [$values]),
+            $this->cleanBindings(Arr::flatten([$values], 1))
+        ) ? $newId : 0;
     }
 
     public function update(array $values): int

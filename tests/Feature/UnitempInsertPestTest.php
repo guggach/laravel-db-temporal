@@ -13,6 +13,27 @@ beforeAll(function () {
     RefreshDatabase::class;
 });
 
+it('insertGetId returns 1 for the first record using the builder directly', function () {
+    $builder = (new UniTemporalId)->newModelQuery()->getQuery();
+
+    $id = $builder->insertGetId(['text' => 'First Record']);
+
+    expect($id)->toBe(1);
+    $this->assertDatabaseHas('uni_temporal_ids', ['id' => 1, 'text' => 'First Record']);
+});
+
+it('insertGetId auto-increments correctly for subsequent inserts', function () {
+    $builder = (new UniTemporalId)->newModelQuery()->getQuery();
+
+    $id1 = $builder->insertGetId(['text' => 'First']);
+    $id2 = $builder->insertGetId(['text' => 'Second']);
+
+    expect($id1)->toBe(1);
+    expect($id2)->toBe(2);
+    $this->assertDatabaseHas('uni_temporal_ids', ['id' => 1, 'text' => 'First']);
+    $this->assertDatabaseHas('uni_temporal_ids', ['id' => 2, 'text' => 'Second']);
+});
+
 it('Insert first Record with standard id', function () {
     $result = UniTemporalId::create([
         'text' => 'First Record',
@@ -85,6 +106,47 @@ it('Use absolute default column names not configured in config nor model and ins
 
     $this->assertDatabaseHas('uni_temporal_id_trx_dates', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => 1]);
 
+});
+
+it('insert first record with model using $incrementing = false (non-ULID)', function () {
+    class UniTemporalNonIncrementing extends Model
+    {
+        use IsUniTemporal;
+
+        protected $table = 'uni_temporal_ids';
+
+        public $incrementing = false;
+
+        protected $guarded = [];
+    }
+
+    $result = UniTemporalNonIncrementing::create([
+        'text' => 'First Record',
+    ]);
+
+    expect($result->id)->toBe(1);
+    $this->assertDatabaseHas('uni_temporal_ids', ['id' => 1, 'text' => 'First Record']);
+});
+
+it('auto-increments correctly with model using $incrementing = false', function () {
+    class UniTemporalNonInc extends Model
+    {
+        use IsUniTemporal;
+
+        protected $table = 'uni_temporal_ids';
+
+        public $incrementing = false;
+
+        protected $guarded = [];
+    }
+
+    $first = UniTemporalNonInc::create(['text' => 'First']);
+    $second = UniTemporalNonInc::create(['text' => 'Second']);
+
+    expect($first->id)->toBe(1);
+    expect($second->id)->toBe(2);
+    $this->assertDatabaseHas('uni_temporal_ids', ['id' => 1, 'text' => 'First']);
+    $this->assertDatabaseHas('uni_temporal_ids', ['id' => 2, 'text' => 'Second']);
 });
 
 it('Table with Ulid key instead of autoincrement key and insert two records', function () {

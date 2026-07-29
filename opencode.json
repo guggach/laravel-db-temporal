@@ -6,7 +6,7 @@
             "enabled": true,
             "command": [
                 "php",
-                "artisan",
+                "vendor/bin/testbench",
                 "boost:mcp"
             ]
         }

@@ -74,6 +74,10 @@ trait IsUniTemporal
     {
         $this->setTransactionTimestamps();
 
+        if (! $this->getIncrementing() && ! $this->usesUniqueIds() && is_null($this->getAttribute($this->getKeyName()))) {
+            $this->setAttribute($this->getKeyName(), ($query->max($this->getKeyName()) ?? 0) + 1);
+        }
+
         return parent::performInsert($query);
     }
 
