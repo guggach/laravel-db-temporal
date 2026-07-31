@@ -168,8 +168,8 @@ class BiTemporalBuilder extends Builder
             return parent::update($values);
         }
 
-        $newVtFrom = isset($values[$this->columnValidFrom]) ? (string) $values[$this->columnValidFrom] : null;
-        $newVtTo = isset($values[$this->columnValidTo]) ? (string) $values[$this->columnValidTo] : null;
+        $newVtFrom = $this->extractVtString($values[$this->columnValidFrom] ?? null);
+        $newVtTo = $this->extractVtString($values[$this->columnValidTo] ?? null);
         unset($values[$this->columnValidFrom], $values[$this->columnValidTo]);
 
         if ($this->vtPrecision === 'datetime') {
@@ -212,8 +212,7 @@ class BiTemporalBuilder extends Builder
             ? ($vtDatetime instanceof Carbon ? $vtDatetime : new Carbon($vtDatetime))
             : null;
 
-        $this->withoutGlobalScopes()
-            ->where($this->columnKnownFrom, '<=', $tt)
+        $this->where($this->columnKnownFrom, '<=', $tt)
             ->where($this->columnKnownTo, '>=', $tt);
 
         if ($vt !== null) {
@@ -245,15 +244,18 @@ class BiTemporalBuilder extends Builder
         return $this->vtPrecision === 'datetime' ? $this->maxTimestamp : $this->maxDate;
     }
 
-    /** Normalize VT columns in a record to the correct date/datetime format. */
+    /**
+     * @param  Record  $record
+     * @return Record
+     */
     private function normalizeVtRecord(array $record): array
     {
         if ($this->vtPrecision === 'day') {
             // Normalize to 'Y-m-d 00:00:00' so all VT values have consistent storage format.
             // MySQL DATE columns truncate the time on write; SQLite stores as-is.
             foreach ([$this->columnValidFrom, $this->columnValidTo] as $col) {
-                if (isset($record[$col])) {
-                    $record[$col] = substr((string) $record[$col], 0, 10).' 00:00:00';
+                if (isset($record[$col]) && is_string($record[$col])) {
+                    $record[$col] = substr($record[$col], 0, 10).' 00:00:00';
                 }
             }
         }
@@ -353,7 +355,7 @@ class BiTemporalBuilder extends Builder
                 $this->columnKnownTo => $this->maxTimestamp,
             ]));
 
-            $this->terminateByValidTo((string) $oldRecord[$this->columnValidTo], $now);
+            $this->terminateByValidTo($this->extractVtString($oldRecord[$this->columnValidTo] ?? null), $now);
 
             parent::insert($newRecord);
             $count++;
@@ -398,6 +400,8 @@ class BiTemporalBuilder extends Builder
         foreach ($oldRecs as $oldRec) {
             /** @var Record $oldRecord */
             $oldRecord = (array) $oldRec;
+            $oldVtFrom = $this->extractVtString($oldRecord[$this->columnValidFrom] ?? null);
+            $oldVtTo = $this->extractVtString($oldRecord[$this->columnValidTo] ?? null);
 
             if ($baseRecord === null) {
                 $baseRecord = $oldRecord;
@@ -405,10 +409,10 @@ class BiTemporalBuilder extends Builder
                 $this->normalizeDottedKeys($values, $baseRecord);
             }
 
-            $this->terminateByValidTo((string) $oldRecord[$this->columnValidTo], $now);
+            $this->terminateByValidTo($oldVtTo, $now);
 
             // Left remainder: preserve old data for VT range before new valid_from
-            if ($newVtFrom !== null && (string) $oldRecord[$this->columnValidFrom] < $newVtFrom) {
+            if ($newVtFrom !== null && $oldVtFrom !== null && $oldVtFrom < $newVtFrom) {
                 parent::insert($this->normalizeVtRecord(array_merge($oldRecord, [
                     $this->columnValidTo => $this->vtSubOne($newVtFrom),
                     $this->columnKnownFrom => $nowStr,
@@ -419,7 +423,7 @@ class BiTemporalBuilder extends Builder
             // Right remainder: preserve old data for VT range after new valid_to
             // Termination must happen BEFORE this insert because the right remainder
             // shares the same valid_to as the old record (same PK slot).
-            if ($newVtTo !== null && $newVtTo !== $vtMax && (string) $oldRecord[$this->columnValidTo] > $newVtTo) {
+            if ($newVtTo !== null && $newVtTo !== $vtMax && $oldVtTo !== null && $oldVtTo > $newVtTo) {
                 parent::insert($this->normalizeVtRecord(array_merge($oldRecord, [
                     $this->columnValidFrom => $this->vtAddOne($newVtTo),
                     $this->columnKnownFrom => $nowStr,
@@ -435,7 +439,7 @@ class BiTemporalBuilder extends Builder
 
         $vtFormat = $this->vtPrecision === 'datetime' ? 'Y-m-d H:i:s' : 'Y-m-d';
         $newRecord = $this->normalizeVtRecord(array_merge(
-            $baseRecord ?? [],
+            $baseRecord,
             $values,
             [
                 $this->columnValidFrom => $newVtFrom ?? ($now->format($vtFormat).($this->vtPrecision === 'day' ? ' 00:00:00' : '')),
@@ -463,8 +467,11 @@ class BiTemporalBuilder extends Builder
     }
 
     /** TT-terminate a specific record identified by its valid_to value (part of the PK). */
-    private function terminateByValidTo(string $validTo, Carbon $now): void
+    private function terminateByValidTo(?string $validTo, Carbon $now): void
     {
+        if ($validTo === null) {
+            return;
+        }
         $q = new Builder($this->connection, $this->grammar, $this->processor);
         $q->from($this->from);
         $q->wheres = $this->wheres;
@@ -475,10 +482,28 @@ class BiTemporalBuilder extends Builder
     }
 
     /**
-     * Normalize dotted-key values (e.g. "table.column") into plain key form.
+     * Convert a RecordValue to string for use as a VT boundary; returns null for arrays/null.
      *
-     * @param  Record  $values
+     * @param  RecordValue  $value
+     */
+    private function extractVtString(mixed $value): ?string
+    {
+        if ($value === null || is_array($value)) {
+            return null;
+        }
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+        if ($value instanceof BackedEnum) {
+            return (string) $value->value;
+        }
+
+        return is_scalar($value) ? (string) $value : (string) $value;
+    }
+
+    /**
      * @param  Record  $record
+     * @param  Record  $values
      */
     private function normalizeDottedKeys(array &$values, array $record): void
     {

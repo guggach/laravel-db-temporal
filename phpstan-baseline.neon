@@ -1,7 +1,2 @@
 parameters:
-	ignoreErrors:
-		-
-			message: '#^Trait Guggach\\LaravelDbTemporal\\Eloquent\\IsUniTemporal is used zero times and is not analysed\.$#'
-			identifier: trait.unused
-			count: 1
-			path: src/Eloquent/IsUniTemporal.php
+	ignoreErrors: []

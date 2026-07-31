@@ -107,6 +107,11 @@ trait IsUniTemporal
 
     private function constantIfDefined(string $name): ?string
     {
-        return defined('static::'.$name) ? constant('static::'.$name) : null;
+        if (! defined('static::'.$name)) {
+            return null;
+        }
+        $value = constant('static::'.$name);
+
+        return is_string($value) ? $value : null;
     }
 }

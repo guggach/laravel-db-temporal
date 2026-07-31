@@ -1,6 +1,7 @@
 <?php
 
 use Guggach\LaravelDbTemporal\Tests\Models\BiTemporalItem;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ function insertRaw(int $id, string $text, string $validFrom, string $validTo, st
     ]);
 }
 
-function allRows(int $id): \Illuminate\Support\Collection
+function allRows(int $id): Collection
 {
     return DB::connection('sqlite-test')
         ->table('bi_temporal_items')
@@ -28,7 +29,7 @@ function allRows(int $id): \Illuminate\Support\Collection
         ->get();
 }
 
-function openRows(int $id): \Illuminate\Support\Collection
+function openRows(int $id): Collection
 {
     return DB::connection('sqlite-test')
         ->table('bi_temporal_items')

@@ -289,11 +289,13 @@ class BiTemporalScope implements Scope
             ->where($model->getColumnKnownTo(), $model->getMaxTimestamp());
 
         if ($from !== null) {
-            $builder->where($model->getColumnValidFrom(), '>=', $this->formatVt($this->resolveCarbon($from), $model));
+            $vtFrom = $from instanceof Carbon ? $from : new Carbon($from);
+            $builder->where($model->getColumnValidFrom(), '>=', $this->formatVt($vtFrom, $model));
         }
 
         if ($to !== null) {
-            $builder->where($model->getColumnValidTo(), '<=', $this->formatVt($this->resolveCarbon($to), $model));
+            $vtTo = $to instanceof Carbon ? $to : new Carbon($to);
+            $builder->where($model->getColumnValidTo(), '<=', $this->formatVt($vtTo, $model));
         }
 
         return $builder;
@@ -313,11 +315,13 @@ class BiTemporalScope implements Scope
             ->where($model->getColumnKnownTo(), $model->getMaxTimestamp());
 
         if ($from !== null) {
-            $builder->where($model->getColumnValidTo(), '>=', $this->formatVt($this->resolveCarbon($from), $model));
+            $vtFrom = $from instanceof Carbon ? $from : new Carbon($from);
+            $builder->where($model->getColumnValidTo(), '>=', $this->formatVt($vtFrom, $model));
         }
 
         if ($to !== null) {
-            $builder->where($model->getColumnValidFrom(), '<=', $this->formatVt($this->resolveCarbon($to), $model));
+            $vtTo = $to instanceof Carbon ? $to : new Carbon($to);
+            $builder->where($model->getColumnValidFrom(), '<=', $this->formatVt($vtTo, $model));
         }
 
         return $builder;

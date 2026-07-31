@@ -115,4 +115,3 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
         return BiTemporalConfig::fromArray($configured);
     }
 }
-

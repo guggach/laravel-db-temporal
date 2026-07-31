@@ -2,6 +2,7 @@
 
 use Guggach\LaravelDbTemporal\Tests\Models\BiTemporalItem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 function seedBiTemporal(): void
 {
@@ -110,14 +111,14 @@ it('versionsTouchingValidRange returns records that overlap the window', functio
 });
 
 it('schema macros create correct column types and primary key', function () {
-    \Illuminate\Support\Facades\Schema::create('bitemp_macro_test', function ($table) {
+    Schema::create('bitemp_macro_test', function ($table) {
         $table->unsignedBigInteger('id');
         $table->bitemporal();
         $table->string('name');
         $table->bitempIndexes();
     });
 
-    $columns = \Illuminate\Support\Facades\Schema::getColumnListing('bitemp_macro_test');
+    $columns = Schema::getColumnListing('bitemp_macro_test');
     expect($columns)->toContain('valid_from')
         ->toContain('valid_to')
         ->toContain('known_from')

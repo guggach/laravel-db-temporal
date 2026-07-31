@@ -58,9 +58,12 @@ trait IsBiTemporal
         return $this->resolveTemporalConfig()->columnKnownTo;
     }
 
+    /** @return 'day'|'datetime' */
     public function getVtPrecision(): string
     {
-        return $this->resolveTemporalConfig()->vtPrecision;
+        $precision = $this->resolveTemporalConfig()->vtPrecision;
+
+        return $precision === 'datetime' ? 'datetime' : 'day';
     }
 
     public function getVtMaxSentinel(): string
@@ -149,6 +152,11 @@ trait IsBiTemporal
 
     private function constantIfDefined(string $name): ?string
     {
-        return defined('static::'.$name) ? constant('static::'.$name) : null;
+        if (! defined('static::'.$name)) {
+            return null;
+        }
+        $value = constant('static::'.$name);
+
+        return is_string($value) ? $value : null;
     }
 }
