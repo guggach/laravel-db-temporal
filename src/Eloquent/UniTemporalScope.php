@@ -250,8 +250,8 @@ class UniTemporalScope implements Scope
             ->whereNotExists(function (QueryBuilder $query) use ($model) {
                 $query->selectRaw('1')
                     ->from($model->getTable(), 'sub')
-                    ->whereColumn('sub.' . $model->getKeyName(), $model->getTable() . '.' . $model->getKeyName())
-                    ->where('sub.' . $model->getColumnTrxTo(), $model->getMaxTimestamp())
+                    ->whereColumn('sub.'.$model->getKeyName(), $model->getTable().'.'.$model->getKeyName())
+                    ->where('sub.'.$model->getColumnTrxTo(), $model->getMaxTimestamp())
                     ->limit(1);
             })
             ->when($datetime, fn ($q) => $q->where($model->getColumnTrxTo(), '>=', $datetime))

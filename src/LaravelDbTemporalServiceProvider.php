@@ -2,6 +2,7 @@
 
 namespace Guggach\LaravelDbTemporal;
 
+use Guggach\LaravelDbTemporal\Configuration\BiTemporalConfig;
 use Guggach\LaravelDbTemporal\Configuration\TemporalConfig;
 use Guggach\LaravelDbTemporal\Connections\TemporalConnection;
 use Illuminate\Database\Schema\Blueprint;
@@ -11,6 +12,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 /**
  * @phpstan-import-type TemporalDefaultsShape from TemporalConfig
  * @phpstan-import-type TemporalConnectionConfigShape from TemporalConfig
+ * @phpstan-import-type BiTemporalConfigShape from BiTemporalConfig
  */
 class LaravelDbTemporalServiceProvider extends PackageServiceProvider
 {
@@ -63,6 +65,24 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
             $this->primary([$pk, $config->columnFrom, $config->columnTo]);
             $this->index([$config->columnTo, $pk]);
         });
+
+        Blueprint::macro('bitemporal', function (): void {
+            /** @var Blueprint $this */
+            $config = LaravelDbTemporalServiceProvider::resolveBiTemporalDefaults();
+            $vtColumn = $config->vtPrecision === 'datetime' ? 'dateTime' : 'date';
+            $this->{$vtColumn}($config->columnValidFrom);
+            $this->{$vtColumn}($config->columnValidTo);
+            $this->dateTime($config->columnKnownFrom);
+            $this->dateTime($config->columnKnownTo);
+        });
+
+        Blueprint::macro('bitempIndexes', function (string $pk = 'id'): void {
+            /** @var Blueprint $this */
+            $config = LaravelDbTemporalServiceProvider::resolveBiTemporalDefaults();
+            $this->primary([$pk, $config->columnValidTo, $config->columnKnownTo]);
+            $this->index([$config->columnKnownTo, $config->columnValidTo, $pk]);
+            $this->index([$config->columnValidTo, $config->columnKnownTo, $pk]);
+        });
     }
 
     public static function resolveTemporalDefaults(): TemporalConfig
@@ -79,4 +99,20 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
         /** @var TemporalDefaultsShape $configured */
         return TemporalConfig::fromArray($configured);
     }
+
+    public static function resolveBiTemporalDefaults(): BiTemporalConfig
+    {
+        $defaultConnection = config('database.default');
+        $connectionName = is_string($defaultConnection) ? $defaultConnection : '';
+
+        $configured = config('database.connections.'.$connectionName.'.bi-temporal.defaults', []);
+
+        if (! is_array($configured)) {
+            return BiTemporalConfig::fromArray(null);
+        }
+
+        /** @var BiTemporalConfigShape $configured */
+        return BiTemporalConfig::fromArray($configured);
+    }
 }
+

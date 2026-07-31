@@ -1,38 +1,38 @@
 # Uni-Temporal (Transaction Time Versioning)
 
-## Was ist temporales Storage?
+## What is temporal storage?
 
-Eine normale Datenbanktabelle speichert nur den **aktuellen Zustand** eines Datensatzes. Wenn du einen Datensatz änderst oder löschst, sind die vorherigen Werte unwiderruflich verloren.
+A normal database table stores only the **current state** of a record. When you update or delete a record, the previous values are gone forever.
 
-Ein **temporales Speicher** behält dagegen **alle Versionen** eines Datensatzes. Jede Änderung erzeugt einen neuen Eintrag – der alte bleibt für die Nachwelt erhalten.
+**Temporal storage** preserves every version. Every change creates a new entry — the old one remains intact and queryable.
 
-### Uni-Temporal (eine Zeitachse)
+### Uni-Temporal (one time axis)
 
-Jeder Datensatz bekommt zwei zusätzliche Spalten:
+Each record gains two additional columns:
 
-| Spalte | Bedeutung | Beispiel |
-|--------|-----------|----------|
-| `known_from` | Zeitpunkt, ab dem diese Version gültig wurde | `2024-06-01 10:00:00` |
-| `known_to` | Zeitpunkt, bis zu dem diese Version gültig war | `2024-06-10 14:30:00` |
-| Max-Sentinel | Markiert die aktuell gültige Version | `9999-12-31 23:59:59` |
+| Column | Meaning | Example |
+|--------|---------|---------|
+| `known_from` | When this version became active | `2024-06-01 10:00:00` |
+| `known_to` | When this version was superseded | `2024-06-10 14:30:00` |
+| Max-sentinel | Marks the currently active version | `9999-12-31 23:59:59` |
 
-**Aktuelle Version**: `known_to = 9999-12-31 23:59:59`
-**Historische Version**: `known_to` ist ein vergangener Zeitpunkt
-**Gelöschter Datensatz**: Die letzte Version bekommt `known_to = Löschzeitpunkt - 1 Sekunde` (sofern du nicht SoftDeletes nutzt)
+**Current version**: `known_to = 9999-12-31 23:59:59`  
+**Historical version**: `known_to` is a past timestamp  
+**Deleted record**: the last version has `known_to = deletion time − 1 second` (unless using SoftDeletes)
 
 ```mermaid
 gantt
-    title Lebenszyklus von Order #1 – jede Änderung = neue Version
+    title Lifecycle of Order #1 — every change creates a new version
     dateFormat  YYYY-MM-DD
     axisFormat  %Y-%m-%d
 
-    section Versionen (Inhalt)
-    Widget (Menge 5)    :v1, 2024-06-01, 5d
-    Widget (Menge 10)   :v2, 2024-06-06, 10d
-    Gadget (Menge 10)   :v3, 2024-06-16, 5d
-    gelöscht            :v3d, 2024-06-21, 1d
+    section Versions (content)
+    Widget (qty 5)    :v1, 2024-06-01, 5d
+    Widget (qty 10)   :v2, 2024-06-06, 10d
+    Gadget (qty 10)   :v3, 2024-06-16, 5d
+    deleted           :v3d, 2024-06-21, 1d
 
-    section Zeitliche Gültigkeit
+    section Temporal validity
     known_from → known_to :active, 2024-06-01, 20d
 ```
 
@@ -44,15 +44,15 @@ gantt
 composer require guggach/laravel-db-temporal
 ```
 
-Danach kannst du die `temporal-proxy`-Connection automatisch in deine `config/database.php` einrichten lassen:
+Set up the `temporal-proxy` connection in your `config/database.php`:
 
 ```bash
 php artisan temporal:install
 ```
 
-Der Befehl liest deine aktuelle Default-Connection (z.B. `mysql`), setzt sie als `base` und wechselt den Default auf `temporal`. Alle nicht-temporalen Tabellen passieren unverändert.
+This reads your current default connection (e.g. `mysql`), sets it as `base`, and switches the default to `temporal`. All non-temporal tables pass through unchanged.
 
-Zum Rückgängigmachen:
+To undo:
 
 ```bash
 php artisan temporal:uninstall
@@ -60,19 +60,19 @@ php artisan temporal:uninstall
 
 ---
 
-## Konfiguration und Anwendung
+## Configuration
 
-Laravel hat zwei Wege wie Datenbanken bearbeitet werden, nämlich **Connection-basiert** (`DB::table()`) und **Eloquent-basiert** (Models). Dieses Paket unterstützt beide Wege. Wenn du nur Eloquent nutzt, brauchst du keine Connection-Config – der Trait verwendet automatisch die Standard-Spaltennamen `known_from` / `known_to`. Du kannst die Namen auch im Model überschreiben.
+Laravel provides two ways to interact with the database: **connection-based** (`DB::table()`) and **Eloquent-based** (models). This package supports both. If you only use Eloquent, no connection config is required — the trait defaults to `known_from` / `known_to`. Column names can also be overridden on the model.
 
-**Warnung!**: Wenn du auf die Connection-basierte Konfiguration verzichtest, dann darfst du `DB::table()` nur auf Tabellen anwenden, die **nicht** temporales Verhalten haben. Die Gefahr ist maximal gross, dass die Historie von temporalen Tabellen zerstört wird.
+> **Warning:** If you skip the connection config, never call `DB::table()` on temporal tables — it will silently corrupt the history. Use Eloquent models instead.
 
-**Empfehlung:** Definiere die temporalen Tabellen in der Connection-Config, auch wenn du grundsätzlich nur Eloquent nutzt. Dann ist die Historie gesichert. Am besten setzt du die `temporal`-Connection gleich als **Default** – nicht-temporale Tabellen passieren unverändert.
+> **Recommendation:** Always define your temporal tables in the connection config, even if you primarily use Eloquent. Setting `temporal` as the default connection is the safest approach — non-temporal tables pass through unchanged.
 
-### Connection-basiert (`DB::table()`) – empfohlen
+### Connection-based (`DB::table()`) — recommended
 
-Die Connection-Config in `config/database.php` definiert, welche Tabellen temporal sind und welche Column-Namen sie verwenden. **Alle nicht gelisteten Tabellen passieren unverändert.**
+The connection config in `config/database.php` defines which tables are temporal and their column names. **All unlisted tables pass through unchanged.**
 
-**Einfachster Fall** – nur die Default-Spaltennamen (`known_from` / `known_to`):
+**Simplest case** — default column names (`known_from` / `known_to`):
 
 ```php
 // config/database.php
@@ -81,28 +81,28 @@ Die Connection-Config in `config/database.php` definiert, welche Tabellen tempor
 'connections' => [
     'temporal' => [
         'driver' => 'temporal-proxy',
-        'base'   => 'mysql',          // oder: pgsql, sqlite
+        'base'   => 'mysql',  // or: pgsql, sqlite
 
         'uni-temporal' => [
             'defaults' => [
-                'column_from' => 'known_from',
-                'column_to'   => 'known_to',
+                'column_from'   => 'known_from',
+                'column_to'     => 'known_to',
                 'max_timestamp' => '9999-12-31 23:59:59',
             ],
             'tables' => [
-                'orders' => [],        // verwendet defaults
-                'articles' => [],     // verwendet defaults
+                'orders'   => [],  // uses defaults
+                'articles' => [],  // uses defaults
             ],
         ],
     ],
 ],
 ```
 
-`host`, `port`, `database`, `username`, `password` werden von der `base`-Connection übernommen – du brauchst sie hier nicht.
+`host`, `port`, `database`, `username`, and `password` are inherited from the `base` connection.
 
-`'orders' => []` (leeres Array) bedeutet: Tabelle ist temporal mit den Default-Namen. Das ist der häufigste Fall.
+`'orders' => []` (empty array) means: temporal table using the default column names.
 
-**Mit abweichenden Column-Namen:**
+**With custom column names:**
 
 ```php
 'uni-temporal' => [
@@ -111,8 +111,8 @@ Die Connection-Config in `config/database.php` definiert, welche Tabellen tempor
         'column_to'   => 'known_to',
     ],
     'tables' => [
-        'orders' => [],                   // known_from / known_to
-        'invoices' => [                   // abweichende Namen
+        'orders'   => [],               // known_from / known_to
+        'invoices' => [                 // custom names
             'column_from' => 'sys_from',
             'column_to'   => 'sys_to',
         ],
@@ -120,25 +120,19 @@ Die Connection-Config in `config/database.php` definiert, welche Tabellen tempor
 ],
 ```
 
-**Wichtig:** Nicht-temporale Tabellen (`users`, `password_resets`, `migrations`) werden **nicht versioniert** – sie arbeiten wie gewohnt. Die `temporal`-Connection ist ein Vollersatz für die Standard-Connection.
-
-Jetzt werden `INSERT`, `UPDATE`, `DELETE` auf gelisteten Tabellen automatisch versioniert:
+`INSERT`, `UPDATE`, and `DELETE` on listed tables are now automatically versioned:
 
 ```php
-DB::table('orders')->insert([
-    'product' => 'Widget', 'quantity' => 5
-]);
+DB::table('orders')->insert(['product' => 'Widget', 'quantity' => 5]);
 
-DB::table('orders')->where('id', 1)->update([
-    'quantity' => 10
-]);
+DB::table('orders')->where('id', 1)->update(['quantity' => 10]);
 
 DB::table('orders')->where('id', 1)->delete();
 ```
 
-### Eloquent-basiert (Model) – nur Trait
+### Eloquent model
 
-Füge den `IsUniTemporal`-Trait zu deinem Model hinzu – ohne Connection-Config verwendest du die Defaults `known_from` / `known_to`. Das Model muss zusätzlich das Interface `UniTemporalModel` implementieren, damit die Spalten-Accessor-Methoden vom Typ-System erkannt werden:
+Add the `IsUniTemporal` trait and implement the `UniTemporalModel` interface:
 
 ```php
 use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
@@ -147,24 +141,18 @@ use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
 class Order extends Model implements UniTemporalModel
 {
     use IsUniTemporal;
-
     public $incrementing = false;
 }
 ```
 
-### Column-Namen Auflösung (Resolver-Kette)
+### Column name resolver (first match wins)
 
-Der Trait und der Builder lesen Column-Namen aus diesen Quellen (erster Treffer gewinnt):
-
-1. **Model-Konstanten**: `COLUMN_TRX_DATE_FROM`, `COLUMN_TRX_DATE_TO`, `MAX_TIMESTAMP`
-2. **Table-Config**: `uni-temporal.tables.<table>.column_from` (pro Tabelle in der Connection)
-3. **Connection-Defaults**: `uni-temporal.defaults.column_from`
-4. **Hardcoded Fallback**: `known_from` / `known_to` / `9999-12-31 23:59:59`
+1. Model constants: `COLUMN_TRX_DATE_FROM`, `COLUMN_TRX_DATE_TO`, `MAX_TIMESTAMP`
+2. Table config: `uni-temporal.tables.<table>.column_from`
+3. Connection defaults: `uni-temporal.defaults.column_from`
+4. Hardcoded fallback: `known_from` / `known_to` / `9999-12-31 23:59:59`
 
 ```php
-use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
-use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
-
 class Order extends Model implements UniTemporalModel
 {
     use IsUniTemporal;
@@ -175,16 +163,18 @@ class Order extends Model implements UniTemporalModel
 }
 ```
 
-### Datenbank-Schema (Migration)
+---
 
-Das Paket stellt zwei **Blueprint-Makros** für Migrationen bereit:
+## Database schema
 
-| Makro | Beschreibung |
+### Blueprint macros
+
+| Macro | Description |
 |-------|-------------|
-| `$table->unitemporal()` | Fügt `dateTime`-Spalten für `column_from` und `column_to` aus den Connection-Defaults hinzu |
-| `$table->unitempIndexes($pk = 'id')` | Legt den zusammengesetzten Primärschlüssel `(pk, column_from, column_to)` und einen Composite-Index auf `(column_to, pk)` an |
+| `$table->unitemporal()` | Adds `dateTime` columns for `column_from` and `column_to` from the connection defaults |
+| `$table->unitempIndexes($pk = 'id')` | Creates composite primary key `(pk, column_from, column_to)` and a composite index on `(column_to, pk)` |
 
-**Standardfall – einfach und komplett:**
+**Standard case:**
 
 ```php
 Schema::create('orders', function (Blueprint $table) {
@@ -198,9 +188,9 @@ Schema::create('orders', function (Blueprint $table) {
 });
 ```
 
-Erzeugt: `known_from datetime`, `known_to datetime`, Primärschlüssel `(id, known_from, known_to)` und Composite-Index auf `(known_to, id)`.
+Creates: `known_from datetime`, `known_to datetime`, primary key `(id, known_from, known_to)`, and a composite index on `(known_to, id)`.
 
-**Mit abweichendem Primärschlüssel (z.B. UUID):**
+**With a custom primary key (e.g. UUID):**
 
 ```php
 Schema::create('orders', function (Blueprint $table) {
@@ -214,9 +204,9 @@ Schema::create('orders', function (Blueprint $table) {
 });
 ```
 
-**Wichtig:** Verwende `unsignedBigInteger('id')` statt `id()` (auto-increment), da der Primärschlüssel aus drei Spalten besteht. `id()` würde einen eigenen auto-increment-PK setzen, der mit dem composite-PK kollidiert.
+> Use `unsignedBigInteger('id')` instead of `id()` — the 3-column composite PK replaces the standard auto-increment PK.
 
-#### Ohne Makros (manuell)
+### Manual migration (without macros)
 
 ```php
 Schema::create('orders', function (Blueprint $table) {
@@ -232,375 +222,182 @@ Schema::create('orders', function (Blueprint $table) {
 });
 ```
 
-#### Benutzerdefinierte Column-Namen
+### Column types
 
-Die Makros lesen die Defaults aus der Config der **Default-Datenbankverbindung** unter `uni-temporal.defaults`:
-
-```php
-// config/database.php
-'connections' => [
-    'mysql' => [
-        'driver' => 'mysql',
-        // …
-        'uni-temporal' => [
-            'defaults' => [
-                'column_from' => 'sys_from',
-                'column_to'   => 'sys_to',
-                'max_date'    => '9999-12-31 23:59:59',
-            ],
-        ],
-    ],
-],
-```
-
-```php
-Schema::create('invoices', function (Blueprint $table) {
-    $table->unsignedBigInteger('id');
-    $table->unitemporal();
-    // …
-    $table->unitempIndexes();
-});
-```
-
-Erzeugt dann `sys_from datetime`, `sys_to datetime` und den PK `(id, sys_from, sys_to)`.
-
-**Ohne Connection-Defaults** (oder weicht nur eine einzelne Migration ab) die Makros nicht verwenden – manuell schreiben:
-
-```php
-Schema::create('invoices', function (Blueprint $table) {
-    $table->unsignedBigInteger('id');
-    $table->dateTime('sys_from');
-    $table->dateTime('sys_to');
-    $table->string('title');
-    $table->timestamps();
-
-    $table->primary(['id', 'sys_from', 'sys_to']);
-    $table->index(['sys_to', 'id']);
-});
-```
-
-#### Column-Typen
-
-| Typ | Empfehlung | Hinweis |
-|-----|-----------|---------|
-| `dateTime` | `known_from`, `known_to` | Sekundengenau, Standard |
-| `timestamp` | Alternative | MySQL konvertiert in UTC, kann bei max-Wert Probleme geben |
-| `dateTimeTz` | Für multi-timezone | Erhöht Komplexität, nur nötig wenn absolute Klarheit |
+| Type | Recommendation | Note |
+|------|---------------|------|
+| `dateTime` | `known_from`, `known_to` | Second-precision, standard |
+| `timestamp` | Alternative | MySQL converts to UTC; may cause issues with the max value |
+| `dateTimeTz` | Multi-timezone | Increases complexity; only needed for absolute timezone clarity |
 
 ---
 
-## Szenario: Ein Auftrag über seinen Lebenszyklus
+## Scenario: An order over its lifecycle
 
-Nehmen wir einen Webshop-Auftrag, der über die Zeit mehrfach geändert wird.
+A web shop order that is changed multiple times.
 
-### 1. Tag 1 – Auftrag wird erfasst
+### Day 1 — Order is created
 
-```sql
-INSERT INTO orders (id, product, quantity, known_from, known_to)
-VALUES (1, 'Widget', 5, '2024-06-01 10:00:00', '9999-12-31 23:59:59');
+```php
+Order::create(['id' => 1, 'product' => 'Widget', 'quantity' => 5]);
 ```
-
-**Tabelle `orders`:**
 
 | id | product | quantity | known_from | known_to |
 |----|---------|----------|------------|----------|
-| 1  | Widget  | 5        | 2024-06-01 10:00:00 | 9999-12-31 23:59:59 |
+| 1 | Widget | 5 | 2024-06-01 10:00:00 | 9999-12-31 23:59:59 |
 
-Eine Zeile. `known_to = max` → das ist die aktuelle Version.
+One row. `known_to = max` → this is the current version.
 
-### 2. Tag 6 – Mengenänderung von 5 auf 10
+### Day 6 — Quantity change from 5 to 10
 
-Normalerweise ein `UPDATE`. Temporal passiert Folgendes:
-
-**Schritt 1:** Die aktuelle Version wird *geschlossen*:
-```sql
-UPDATE orders SET known_to = '2024-06-06 09:15:00'
-WHERE id = 1 AND known_to = '9999-12-31 23:59:59';
+```php
+$order->update(['quantity' => 10]);
 ```
 
-**Schritt 2:** Eine *neue Version* wird eingefügt:
-```sql
-INSERT INTO orders (id, product, quantity, known_from, known_to)
-VALUES (1, 'Widget', 10, '2024-06-06 09:15:01', '9999-12-31 23:59:59');
+Under the hood: close the current version, insert a new one.
+
+| id | product | quantity | known_from | known_to | status |
+|----|---------|----------|------------|----------|--------|
+| 1 | Widget | 5 | 2024-06-01 10:00:00 | **2024-06-06 09:15:00** | historical |
+| 1 | Widget | **10** | **2024-06-06 09:15:01** | 9999-12-31 23:59:59 | **current** |
+
+### Day 16 — Product change from Widget to Gadget
+
+Same principle: close old version, create new version.
+
+| id | product | quantity | known_from | known_to | status |
+|----|---------|----------|------------|----------|--------|
+| 1 | Widget | 5 | 2024-06-01 | 2024-06-06 | historical |
+| 1 | Widget | 10 | 2024-06-06 | **2024-06-16** | historical |
+| 1 | **Gadget** | **10** | **2024-06-16** | 9999-12-31 | **current** |
+
+### Day 21 — Order is deleted
+
+Temporal delete closes the current version — no physical `DELETE`.
+
+```php
+$order->delete();
 ```
 
-**Tabelle `orders` nach dem Update:**
-
-| id | product | quantity | known_from | known_to | Status |
+| id | product | quantity | known_from | known_to | status |
 |----|---------|----------|------------|----------|--------|
-| 1  | Widget  | 5        | 2024-06-01 10:00:00 | **2024-06-06 09:15:00** | historisch |
-| 1  | Widget  | **10**   | **2024-06-06 09:15:01** | 9999-12-31 23:59:59 | **aktuell** |
+| 1 | Widget | 5 | 2024-06-01 | 2024-06-06 | historical |
+| 1 | Widget | 10 | 2024-06-06 | 2024-06-16 | historical |
+| 1 | Gadget | 10 | 2024-06-16 | **2024-06-21** | **deleted** |
 
-Zwei Zeilen. Die alte Version ist geschlossen, die neue ist aktiv.
-
-### 3. Tag 16 – Produktwechsel von Widget auf Gadget
-
-Gleiches Prinzip: alte Version schliessen, neue Version erzeugen.
-
-| id | product | quantity | known_from | known_to | Status |
-|----|---------|----------|------------|----------|--------|
-| 1  | Widget  | 5        | 2024-06-01 10:00:00 | 2024-06-06 09:15:00 | historisch |
-| 1  | Widget  | 10       | 2024-06-06 09:15:01 | **2024-06-16 11:30:00** | historisch |
-| 1  | **Gadget** | **10** | **2024-06-16 11:30:01** | 9999-12-31 23:59:59 | **aktuell** |
-
-Drei Zeilen, drei Versionen desselben Auftrags.
-
-### 4. Tag 21 – Auftrag wird gelöscht
-
-Temporal löschen schliesst die aktuelle Version – kein physisches `DELETE`.
-
-```sql
-UPDATE orders SET known_to = '2024-06-21 08:00:00'
-WHERE id = 1 AND known_to = '9999-12-31 23:59:59';
-```
-
-| id | product | quantity | known_from | known_to | Status |
-|----|---------|----------|------------|----------|--------|
-| 1  | Widget  | 5        | 2024-06-01 10:00:00 | 2024-06-06 09:15:00 | historisch |
-| 1  | Widget  | 10       | 2024-06-06 09:15:01 | 2024-06-16 11:30:00 | historisch |
-| 1  | Gadget  | 10       | 2024-06-16 11:30:01 | **2024-06-21 08:00:00** | **gelöscht** |
-
-Jetzt hat Auftrag 1 **keine** Version mehr mit `known_to = max`.
-Er ist aus Sicht der Gegenwart nicht mehr sichtbar – aber die gesamte Historie existiert weiter.
+Order 1 no longer has a version with `known_to = max`. It is invisible from the current-state perspective — but the full history remains.
 
 ---
 
-## Abfragen auf temporalen Daten
+## Querying temporal data
 
-### Standard: Nur die aktuelle Version
-
-```php
-Order::where('product', 'Gadget')->get();
-```
-
-Resultat: **leer** – denn die Gadget-Version ist gelöscht (`known_to` != max).
-Der Global Scope fügt automatisch `WHERE known_to = '9999-12-31 23:59:59'` hinzu.
+### Default: current version only
 
 ```php
-Order::all()->count(); // 0 – keine aktuelle Version
+Order::where('product', 'Gadget')->get(); // empty — Gadget version is deleted
+Order::all()->count();                    // 0
 ```
 
-### Alle Versionen (Historie)
+The global scope automatically adds `WHERE known_to = '9999-12-31 23:59:59'`.
+
+### All versions (history)
 
 ```php
 $history = Order::allVersions()->where('id', 1)->get();
-// 3 Datensätze: die ursprüngliche + 2 Änderungen
+// 3 records: original + 2 updates
 ```
 
-| # | product | quantity | known_from | known_to | Status |
-|---|---------|----------|------------|----------|--------|
-| 1 | Widget  | 5        | 2024-06-01 | 2024-06-06 | erste Version |
-| 2 | Widget  | 10       | 2024-06-06 | 2024-06-16 | erste Änderung |
-| 3 | Gadget  | 10       | 2024-06-16 | 2024-06-21 | zweite Änderung (dann gelöscht) |
-
-### Version zu einem bestimmten Zeitpunkt
+### Version at a specific point in time
 
 ```php
 $version = Order::versionAsOf('2024-06-10')->where('id', 1)->first();
 // product = Widget, quantity = 10
-// Das war am 10. Juni der aktuelle Stand
 ```
 
-### Versionen in einem Zeitfenster
+### Versions in a time window
 
-**`versionsInRange(from, to)`** – nur Versionen, die *vollständig* im Fenster liegen:
+**`versionsInRange($from, $to)`** — only versions fully within the window:
 
 ```php
 Order::versionsInRange('2024-06-05', '2024-06-20')->where('id', 1)->get();
 ```
 
-| Version | from | to | Im Fenster? |
-|---------|------|----|------------|
-| Widget/5 | 2024-06-01 | 2024-06-06 | ❌ (beginnt vor dem Fenster) |
+| version | from | to | in window? |
+|---------|------|----|-----------|
+| Widget/5 | 2024-06-01 | 2024-06-06 | ❌ (starts before window) |
 | Widget/10 | 2024-06-06 | 2024-06-16 | ✅ |
 | Gadget/10 | 2024-06-16 | 2024-06-21 | ✅ |
 
-**`versionsTouchedRange(from, to)`** – Versionen, die das Fenster *überlappen*:
+**`versionsTouchedRange($from, $to)`** — versions that overlap the window:
 
 ```php
 Order::versionsTouchedRange('2024-06-05', '2024-06-20')->where('id', 1)->get();
 ```
 
-| Version | from | to | Überlappt? |
-|---------|------|----|------------|
-| Widget/5 | 2024-06-01 | 2024-06-06 | ✅ (endet innerhalb) |
+| version | from | to | overlaps? |
+|---------|------|----|----------|
+| Widget/5 | 2024-06-01 | 2024-06-06 | ✅ (ends within) |
 | Widget/10 | 2024-06-06 | 2024-06-16 | ✅ |
-| Gadget/10 | 2024-06-16 | 2024-06-21 | ✅ (beginnt innerhalb) |
+| Gadget/10 | 2024-06-16 | 2024-06-21 | ✅ (starts within) |
 
-### Erste / Letzte Version
+### First / last version
 
 ```php
-$first = Order::firstVersion()->where('id', 1)->first();
-// Widget, 5 Stück – die ursprüngliche Erfassung
-
-$last = Order::latestVersion()->where('id', 1)->first();
-// Gadget, 10 Stück – die letzte Version (evtl. gelöscht)
+$first = Order::firstVersion()->where('id', 1)->first(); // Widget, qty 5
+$last  = Order::latestVersion()->where('id', 1)->first(); // Gadget, qty 10
 ```
 
 ---
 
-## API-Referenz
+## API reference
 
-### Eloquent-Methoden (IsUniTemporal Trait)
+### Eloquent scope methods
 
-#### `allVersions()`
+| Method | Description |
+|--------|-------------|
+| `allVersions()` | Removes global scope — all versions visible |
+| `currentVersion()` | Restores global scope (after `withoutGlobalScope`) |
+| `firstVersion()` | `ORDER BY known_to ASC` → earliest version |
+| `latestVersion()` | `ORDER BY known_to DESC` → latest version (may be deleted) |
+| `versionAsOf($datetime)` | Version at a given point in time |
+| `versionsInRange($from, $to)` | Versions fully within a time window |
+| `versionsTouchedRange($from, $to)` | Versions overlapping a time window |
+| `deletedSince($datetime = null)` | Records with no current version, optionally filtered by date |
+| `skipVersioning()` | Admin: disable versioning for this query |
+| `resumeVersioning()` | Admin: re-enable versioning |
 
-Entfernt den Global Scope – alle Versionen (aktuell + historisch) sind sichtbar.
-
-```php
-Order::allVersions()->where('id', 1)->get();
-// Alle 3 Versionen von Order #1
-```
-
-#### `currentVersion()`
-
-Stellt den Global Scope wieder her (nach `withoutGlobalScope`).
-
-```php
-Order::allVersions()->currentVersion()->where('id', 1)->get();
-// Nur die aktive Version
-```
-
-#### `firstVersion()`
-
-Sortiert nach `known_to ASC` → die früheste (ursprünglichste) Version.
+### Builder methods (`DB::table()`)
 
 ```php
-Order::firstVersion()->where('id', 1)->first();
-// Widget, 5 Stück
-```
+// Insert — sets known_from = NOW() and known_to = MAX
+DB::table('orders')->insert(['product' => 'Widget', 'quantity' => 5]);
 
-#### `latestVersion()`
+// insertGetId — uses MAX(id) + 1; use ULIDs/UUIDs under high concurrency
+$id = DB::table('orders')->insertGetId(['product' => 'Widget', 'quantity' => 5]);
 
-Sortiert nach `known_to DESC` → die letzte Version (kann gelöscht sein).
+// Update — closes current version, opens new one
+DB::table('orders')->where('id', 1)->update(['quantity' => 10]);
 
-```php
-Order::latestVersion()->where('id', 1)->first();
-// Gadget, 10 Stück
-```
-
-#### `versionAsOf($datetime)`
-
-Version zu einem bestimmten Zeitpunkt (`known_from <= dt <= known_to`).
-
-```php
-Order::versionAsOf('2024-06-10')->where('id', 1)->first();
-// Widget, 10 Stück
-
-Order::versionAsOf(Carbon::parse('2024-06-10 12:00:00'))->first();
-```
-
-#### `versionsInRange($from, $to)`
-
-Versionen, die **vollständig** innerhalb eines Zeitraums liegen (`known_from >= from AND known_to <= to`).
-
-```php
-Order::versionsInRange('2024-06-05', '2024-06-20')->get();
-```
-
-#### `versionsTouchedRange($from, $to)`
-
-Versionen, die einen Zeitraum **überlappen** (`known_to >= from AND known_from <= to`).
-
-```php
-Order::versionsTouchedRange('2024-06-05', '2024-06-20')->get();
-```
-
-### Builder-Methoden (UniTemporalBuilder)
-
-Diese Methoden stehen sowohl auf dem Eloquent-Query-Builder als auch auf `DB::table()` zur Verfügung.
-
-#### `insert(array $values): bool`
-
-Fügt einen neuen Datensatz mit `known_from = now` und `known_to = max` ein.
-
-```php
-DB::table('orders')->insert([
-    'product' => 'Widget', 'quantity' => 5
-]);
-// known_from = NOW(), known_to = 9999-12-31 23:59:59
-```
-
-Bei Eloquent setzt der Trait die Timestamps selbst – der Builder überspringt dann das Setzen.
-
-#### `insertGetId(array $values, $sequence = 'id'): int`
-
-Wie `insert()`, ermittelt aber die nächste ID via `MAX(id) + 1`.
-
-```php
-$id = DB::table('orders')->insertGetId([
-    'product' => 'Widget', 'quantity' => 5
-]);
-// $id = 1
-```
-
-**Hinweis:** Bei hohem Concurrency-Aufkommen kann diese Methode Race Conditions verursachen. Verwende in Produktion ULIDs oder UUIDs als Primärschlüssel.
-
-#### `update(array $values): int`
-
-Schliesst die aktuelle Version (`known_to = now - 1s`) und fügt eine neue Version mit den geänderten Werten ein.
-
-```php
-DB::table('orders')->where('id', 1)->update([
-    'quantity' => 10
-]);
-```
-
-#### `delete($id = null): int`
-
-Setzt `known_to = now - 1s` auf die aktuelle Version – kein physischer `DELETE`.
-
-```php
+// Delete — sets known_to = now − 1s; no physical DELETE
 DB::table('orders')->where('id', 1)->delete();
-// oder
-DB::table('orders')->delete(1);
+
+// Admin: bypass versioning
+DB::table('orders')->skipVersioning()->where('id', 1)->update(['quantity' => 5]);
 ```
-
-#### `skipVersioning()` / `resumeVersioning()`
-
-Deaktiviert/reaktiviert die Versionierung für Admin-Eingriffe (z.B. Korrekturen an der Historie).
-
-```php
-DB::table('orders')
-    ->skipVersioning()
-    ->where('id', 1)
-    ->update(['quantity' => 5]);
-// Nur ein normales UPDATE – keine Versionierung
-```
-
-### Zusammenfassung der Abfrage-Methoden
-
-| Methode | Beschreibung |
-|---------|------------|
-| `allVersions()` | Entfernt den Global Scope – zeigt die ganze Historie |
-| `currentVersion()` | Stellt den Global Scope wieder her (nach `withoutGlobalScope`) |
-| `firstVersion()` | Sortiert nach `known_to ASC` → früheste Version |
-| `latestVersion()` | Sortiert nach `known_to DESC` → letzte Version (kann gelöscht sein) |
-| `versionAsOf($datetime)` | Version zu einem bestimmten Zeitpunkt |
-| `versionsInRange($from, $to)` | Versionen vollständig innerhalb eines Zeitraums |
-| `versionsTouchedRange($from, $to)` | Versionen, die einen Zeitraum überlappen |
-| `skipVersioning()` | Admin: Versionierung für diesen Query deaktivieren |
-| `resumeVersioning()` | Admin: Versionierung wieder aktivieren |
 
 ---
 
-## SoftDeletes: Zwei Lösch-Konzepte kombiniert
+## SoftDeletes
 
-Laravel's `SoftDeletes` und temporales Versioning lassen sich kombinieren:
+`SoftDeletes` and temporal versioning work together — the soft delete flows through the normal `update()` path, so a new TT-version with `deleted_at` is created automatically.
 
 ```php
-use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
-use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
-use Illuminate\Database\Eloquent\SoftDeletes;
-
 class Order extends Model implements UniTemporalModel
 {
     use IsUniTemporal;
     use SoftDeletes;
 }
 ```
-
-**Migration:**
 
 ```php
 Schema::create('orders', function (Blueprint $table) {
@@ -609,28 +406,18 @@ Schema::create('orders', function (Blueprint $table) {
     $table->dateTime('known_to');
     $table->string('product');
     $table->integer('quantity');
-    $table->softDeletes(); // deleted_at
+    $table->softDeletes();
     $table->timestamps();
 
     $table->primary(['id', 'known_from', 'known_to']);
 });
 ```
 
-### Was passiert bei `$order->delete()`?
+When `$order->delete()` is called:
 
-Der Soft-Delete durchläuft die **normale temporale Versionierung** – es wird eine neue Version erzeugt:
-
-**Vor dem Löschen (ein Record):**
-
-| id | name | known_from | known_to | deleted_at |
-|----|------|------------|----------|------------|
-| 100 | Muster | 2026-07-25 10:00:00 | 9999-12-31 23:59:59 | null |
-
-**`$customer->delete()` löst aus:**
-
-1. `SoftDeletes` setzt `deleted_at = now()` auf dem Model
-2. Der normale `update()`-Weg wird durchlaufen → temporale Versionierung
-3. Die alte Version wird geschlossen, eine neue Version mit `deleted_at` wird eingefügt
+1. `SoftDeletes` sets `deleted_at = now()` on the model
+2. The normal `update()` path runs → temporal versioning
+3. Old version is closed, new version with `deleted_at` is inserted
 
 ```mermaid
 sequenceDiagram
@@ -650,55 +437,22 @@ sequenceDiagram
     Model-->>App: true
 ```
 
-**Resultat in der DB:**
-
-| id | name | known_from | known_to | deleted_at |
-|----|------|------------|----------|------------|
-| 100 | Muster | 2026-07-25 10:00:00 | **2026-08-31 13:59:59** | null |
-| 100 | Muster | **2026-08-31 14:00:00** | 9999-12-31 23:59:59 | **2026-08-31 14:00:00** |
-
-**Zwei Scopes wirken zusammen:**
-- `UniTemporalScope`: `WHERE known_to = max` → Version 2 ist die aktuelle
-- `SoftDeletes`: `WHERE deleted_at IS NULL` → Version 2 ist versteckt
-
-Effekt: Der Kunde ist aus normalen Queries verschwunden, aber die Historie zeigt klar, wann er existierte und wann gelöscht wurde.
+Two scopes work together:
+- `UniTemporalScope`: `WHERE known_to = max` → current TT-version
+- `SoftDeletes`: `WHERE deleted_at IS NULL` → hides the deleted record
 
 ```php
-Customer::find(100); // null (SoftDeletes versteckt ihn)
-
-Customer::withTrashed()->find(100);
-// gefunden – aktuellste Version mit deleted_at
-
-Customer::allVersions()->where('id', 100)->get();
-// 2 Records: die aktive Zeit + der gelöschte Zustand
+Customer::find(100);              // null (hidden by SoftDeletes)
+Customer::withTrashed()->find(100); // found — current version with deleted_at
+Customer::allVersions()->where('id', 100)->get(); // full history
 ```
 
 ---
 
-## Best Practices
+## Best practices
 
-1. **Immer `temporal` als Default-Connection** – nicht-temporale Tabellen passieren unverändert, temporale sind geschützt
-2. **Primärschlüssel = `(id, known_from, known_to)`** – die Kombination garantiert Eindeutigkeit
-3. **Composite-Index auf `(known_to, id)`** – deckt `WHERE known_to = max` und `find($id)` optimal ab
-4. **Kein auto-increment bei `insertGetId`** – bei Concurrency-Problemen ULIDs/UUIDs verwenden
-5. **`skipVersioning` nur für Admin-Korrekturen** – nie in der normalen Geschäftslogik
-
----
-
-## Ausblick: Bi-Temporal (zwei Zeitachsen)
-
-```mermaid
-gantt
-    title Bi-Temporal: Application Time + Transaction Time
-    dateFormat  YYYY-MM-DD
-    axisFormat  %Y-%m-%d
-
-    section Application Time (fachlich)
-    gültig ab 2024-07-01  :app1, 2024-07-01, 30d
-    gültig ab 2024-08-01  :app2, 2024-08-01, 60d
-
-    section Transaction Time (System)
-    bekannt seit 2024-06-01 :tx, 2024-06-01, 120d
-```
-
-Bi-temporales Storage erweitert uni-temporales um eine **zweite, fachliche Zeitachse** (Application Time / Valid Time). Mehr dazu in einer späteren Version.
+1. **Set `temporal` as the default connection** — non-temporal tables pass through; temporal tables are protected.
+2. **Primary key = `(id, known_from, known_to)`** — guarantees uniqueness across all versions.
+3. **Composite index on `(known_to, id)`** — optimally covers `WHERE known_to = max AND id = X`.
+4. **Use ULIDs or UUIDs** instead of `insertGetId` under high concurrency.
+5. **Keep `skipVersioning()` for admin corrections only** — never in normal business logic.

@@ -10,4 +10,16 @@
         'tables' => [
         ],
     ],
+    'bi-temporal' => [
+        'defaults' => [
+            'column_valid_from' => 'valid_from',
+            'column_valid_to'   => 'valid_to',
+            'column_known_from' => 'known_from',
+            'column_known_to'   => 'known_to',
+            'vt_precision'      => 'day',                  // 'day' or 'datetime'
+            'max_date'          => '9999-12-31',           // VT sentinel
+            'max_timestamp'     => '9999-12-31 23:59:59',  // TT sentinel
+        ],
+        'tables' => [],
+    ],
 ],

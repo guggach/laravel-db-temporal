@@ -10,15 +10,12 @@ use Guggach\LaravelDbTemporal\Database\Query\UniTemporalBuilder;
  *     column_to?: string,
  *     max_timestamp?: string,
  * }
- *
  * @phpstan-type TemporalTablesShape array<string, TemporalConfigShape>
- *
  * @phpstan-type TemporalDefaultsShape array{
  *     column_from?: string,
  *     column_to?: string,
  *     max_timestamp?: string,
  * }
- *
  * @phpstan-type TemporalConnectionConfigShape array{
  *     base?: string,
  *     driver?: string,

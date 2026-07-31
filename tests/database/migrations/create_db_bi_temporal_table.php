@@ -6,17 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    public function up(): void
     {
-        Schema::create('bi_temporal', function (Blueprint $table) {
+        Schema::create('bi_temporal_items', function (Blueprint $table) {
             $table->unsignedBigInteger('id');
-            $table->dateTime('valid_from');
-            $table->dateTime('valid_until');
-            $table->softDeletes();
+            $table->date('valid_from');
+            $table->date('valid_to');
             $table->dateTime('known_from');
-            $table->dateTime('known_until');
+            $table->dateTime('known_to');
             $table->string('text');
             $table->timestamps();
+            $table->primary(['id', 'valid_to', 'known_to']);
         });
     }
 };

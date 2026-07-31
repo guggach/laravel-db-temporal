@@ -4,29 +4,16 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/guggach/laravel-db-temporal/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/guggach/laravel-db-temporal/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/guggach/laravel-db-temporal.svg?style=flat-square)](https://packagist.org/packages/guggach/laravel-db-temporal)
 
-**Transaction Time Versioning für Laravel.**  
-Jeder `INSERT`, `UPDATE` und `DELETE` wird automatisch versioniert – alte Zustände bleiben erhalten.
+Automatic versioning for Laravel — every `INSERT`, `UPDATE`, and `DELETE` is preserved so you can query any past state of your data.
 
-```php
-// Einfügen → bekannte Historie wird automatisch gesetzt
-Order::create(['product' => 'Widget', 'quantity' => 5]);
+The package supports two versioning modes:
 
-// Ändern → alte Version schliessen, neue Version erzeugen
-$order->update(['quantity' => 10]);
+| Mode | Time axes | Use when |
+|------|-----------|----------|
+| **Uni-temporal** | Transaction time only | You need an audit trail: *"what did the system store at time X?"* |
+| **Bi-temporal** | Transaction time + Valid time | You also need business-time queries: *"what was true in the real world on date X, as known today?"* |
 
-// Löschen → nur temporales Löschen (known_to = now)
-$order->delete();
-
-// Historie abfragen
-Order::allVersions()->where('id', 1)->get();           // alle Versionen
-Order::versionAsOf('2024-06-10')->where('id', 1)->get(); // Stand zu einem Zeitpunkt
-```
-
-**Zwei Ebenen:** Eloquent-Trait `IsUniTemporal` für Models, `temporal-proxy`-Driver für `DB::table()`.
-
-## Dokumentation
-
-**[docs/unitemporal.md](docs/unitemporal.md)** – Theorie, Szenarien, Beispiel-Abfragen und alle Details.
+---
 
 ## Installation
 
@@ -34,17 +21,85 @@ Order::versionAsOf('2024-06-10')->where('id', 1)->get(); // Stand zu einem Zeitp
 composer require guggach/laravel-db-temporal
 ```
 
-Die `temporal-proxy`-Connection in deiner `config/database.php` einrichten:
+Wire up the `temporal-proxy` connection in `config/database.php`:
 
 ```bash
 php artisan temporal:install
 ```
 
-Damit wird ein `temporal`-Eintrag in `config/database.php` angelegt, der deine aktuelle Default-Connection als `base` verwendet. Zum Rückgängigmachen:
+This reads your current default connection (e.g. `mysql`), sets it as `base`, and switches the default to `temporal`. Non-temporal tables pass through unchanged.
+
+To undo:
 
 ```bash
 php artisan temporal:uninstall
 ```
+
+---
+
+## Uni-Temporal — quick start
+
+Every record gains two columns: `known_from` / `known_to`. Updates close the old version and open a new one instead of overwriting.
+
+```php
+use Guggach\LaravelDbTemporal\Eloquent\IsUniTemporal;
+use Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel;
+
+class Order extends Model implements UniTemporalModel
+{
+    use IsUniTemporal;
+    public $incrementing = false;
+}
+```
+
+```php
+Order::create(['product' => 'Widget', 'qty' => 5]);
+
+$order->update(['qty' => 10]);   // old version closed, new version opened
+$order->delete();                // known_to = now — no physical deletion
+
+Order::allVersions()->where('id', 1)->get();          // complete history
+Order::versionAsOf('2024-06-10')->where('id', 1)->first(); // time travel
+```
+
+**[→ Full uni-temporal documentation](docs/unitemporal_de.md)**
+
+---
+
+## Bi-Temporal — quick start
+
+Two time axes: **valid time** (when something was true in the world) and **transaction time** (when the system recorded it).
+
+```php
+use Guggach\LaravelDbTemporal\Eloquent\IsBiTemporal;
+use Guggach\LaravelDbTemporal\Eloquent\BiTemporalModel;
+
+class Address extends Model implements BiTemporalModel
+{
+    use IsBiTemporal;
+    public $incrementing = false;
+    const VT_PRECISION = 'day'; // 'day' (default) or 'datetime' for intraday
+}
+```
+
+```php
+// Customer moves on 2024-07-15
+Address::create(['id' => 1, 'street' => 'Musterstrasse 10', 'valid_from' => '2024-04-01']);
+$address->update(['street' => 'Maierstrasse 2', 'valid_from' => '2024-07-15']);
+
+// Default scope: currently valid address (today's date, today's knowledge)
+Address::find(1)->street; // 'Maierstrasse 2'
+
+// Where was the customer on 15 May, as known today?
+Address::asOf('2024-05-15')->find(1)->street; // 'Musterstrasse 10'
+
+// Where was the customer on 15 May, as the system knew on 1 June?
+Address::asOf('2024-05-15', '2024-06-01')->find(1)->street; // 'Musterstrasse 10'
+```
+
+**[→ Full bi-temporal documentation](docs/bitemporal.md)**
+
+---
 
 ## Testing
 
@@ -52,6 +107,6 @@ php artisan temporal:uninstall
 composer test
 ```
 
-## Lizenz
+## License
 
 MIT
