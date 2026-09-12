@@ -55,8 +55,11 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
         Blueprint::macro('unitemporal', function (): void {
             /** @var Blueprint $this */
             $config = LaravelDbTemporalServiceProvider::resolveTemporalDefaults();
-            $this->dateTime($config->columnFrom);
-            $this->dateTime($config->columnTo);
+            // Precision 6 (microseconds) is required: transaction timestamps
+            // are written with microseconds and two versions in the same
+            // second must not collide on the composite primary key.
+            $this->dateTime($config->columnFrom, 6);
+            $this->dateTime($config->columnTo, 6);
         });
 
         Blueprint::macro('unitempIndexes', function (string $pk = 'id'): void {
@@ -69,11 +72,15 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
         Blueprint::macro('bitemporal', function (): void {
             /** @var Blueprint $this */
             $config = LaravelDbTemporalServiceProvider::resolveBiTemporalDefaults();
-            $vtColumn = $config->vtPrecision === 'datetime' ? 'dateTime' : 'date';
-            $this->{$vtColumn}($config->columnValidFrom);
-            $this->{$vtColumn}($config->columnValidTo);
-            $this->dateTime($config->columnKnownFrom);
-            $this->dateTime($config->columnKnownTo);
+            if ($config->vtPrecision === 'datetime') {
+                $this->dateTime($config->columnValidFrom, 6);
+                $this->dateTime($config->columnValidTo, 6);
+            } else {
+                $this->date($config->columnValidFrom);
+                $this->date($config->columnValidTo);
+            }
+            $this->dateTime($config->columnKnownFrom, 6);
+            $this->dateTime($config->columnKnownTo, 6);
         });
 
         Blueprint::macro('bitempIndexes', function (string $pk = 'id'): void {

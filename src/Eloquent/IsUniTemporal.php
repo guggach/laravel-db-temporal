@@ -28,6 +28,10 @@ trait IsUniTemporal
         if (! isset($this->casts[$this->getColumnTrxTo()])) {
             $this->casts[$this->getColumnTrxTo()] = 'datetime';
         }
+
+        // DateTime-Casts (Lesepfad) muessen die Mikrosekunden erhalten —
+        // das Default-Format des Query-Grammars schneidet sie beim Parsen ab.
+        $this->dateFormat = 'Y-m-d H:i:s.u';
     }
 
     public function getMaxTimestamp(): string

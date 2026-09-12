@@ -3,6 +3,7 @@
 namespace Guggach\LaravelDbTemporal\Eloquent;
 
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
@@ -85,7 +86,7 @@ class UniTemporalScope implements Scope
     protected function addVersionAsOf(Builder $builder): void
     {
         $scope = $this;
-        $builder->macro('versionAsOf', function (Builder $builder, Carbon|string|null $datetime = null) use ($scope) {
+        $builder->macro('versionAsOf', function (Builder $builder, CarbonInterface|string|null $datetime = null) use ($scope) {
             return $scope->versionAsOf($builder, $datetime);
         });
     }
@@ -96,7 +97,7 @@ class UniTemporalScope implements Scope
     protected function addVersionsInRange(Builder $builder): void
     {
         $scope = $this;
-        $builder->macro('versionsInRange', function (Builder $builder, Carbon|string|null $from = null, Carbon|string|null $to = null) use ($scope) {
+        $builder->macro('versionsInRange', function (Builder $builder, CarbonInterface|string|null $from = null, CarbonInterface|string|null $to = null) use ($scope) {
             return $scope->versionsInRange($builder, $from, $to);
         });
     }
@@ -107,7 +108,7 @@ class UniTemporalScope implements Scope
     protected function addVersionsTouchedRange(Builder $builder): void
     {
         $scope = $this;
-        $builder->macro('versionsTouchedRange', function (Builder $builder, Carbon|string|null $from = null, Carbon|string|null $to = null) use ($scope) {
+        $builder->macro('versionsTouchedRange', function (Builder $builder, CarbonInterface|string|null $from = null, CarbonInterface|string|null $to = null) use ($scope) {
             return $scope->versionsTouchedRange($builder, $from, $to);
         });
     }
@@ -129,7 +130,7 @@ class UniTemporalScope implements Scope
     protected function addDeletedSince(Builder $builder): void
     {
         $scope = $this;
-        $builder->macro('deletedSince', function (Builder $builder, Carbon|string|null $datetime = null) use ($scope) {
+        $builder->macro('deletedSince', function (Builder $builder, CarbonInterface|string|null $datetime = null) use ($scope) {
             return $scope->deletedSince($builder, $datetime);
         });
     }
@@ -171,7 +172,7 @@ class UniTemporalScope implements Scope
      * @param  Builder<TModel>  $builder
      * @return Builder<TModel>
      */
-    public function versionAsOf(Builder $builder, Carbon|string|null $datetime = null): Builder
+    public function versionAsOf(Builder $builder, CarbonInterface|string|null $datetime = null): Builder
     {
         $datetime = $this->resolveCarbon($datetime);
 
@@ -186,7 +187,7 @@ class UniTemporalScope implements Scope
      * @param  Builder<TModel>  $builder
      * @return Builder<TModel>
      */
-    public function versionsInRange(Builder $builder, Carbon|string|null $from = null, Carbon|string|null $to = null): Builder
+    public function versionsInRange(Builder $builder, CarbonInterface|string|null $from = null, CarbonInterface|string|null $to = null): Builder
     {
         $model = $builder->getModel();
 
@@ -207,7 +208,7 @@ class UniTemporalScope implements Scope
      * @param  Builder<TModel>  $builder
      * @return Builder<TModel>
      */
-    public function versionsTouchedRange(Builder $builder, Carbon|string|null $from = null, Carbon|string|null $to = null): Builder
+    public function versionsTouchedRange(Builder $builder, CarbonInterface|string|null $from = null, CarbonInterface|string|null $to = null): Builder
     {
         $model = $builder->getModel();
 
@@ -240,7 +241,7 @@ class UniTemporalScope implements Scope
      * @param  Builder<TModel>  $builder
      * @return Builder<TModel>
      */
-    public function deletedSince(Builder $builder, Carbon|string|null $datetime = null): Builder
+    public function deletedSince(Builder $builder, CarbonInterface|string|null $datetime = null): Builder
     {
         $datetime = $this->resolveCarbon($datetime);
 
@@ -264,13 +265,15 @@ class UniTemporalScope implements Scope
      * Bind as a microseconds string: grammars truncate DateTime bindings to
      * seconds, which would break comparisons against microsecond timestamps.
      */
-    private function resolveCarbon(Carbon|string|null $value): ?string
+    private function resolveCarbon(CarbonInterface|string|null $value): ?string
     {
         if (is_null($value)) {
             return null;
         }
 
-        $carbon = $value instanceof Carbon ? $value : new Carbon($value);
+        // CarbonInterface covers Carbon AND CarbonImmutable — formatting
+        // through __toString would truncate microseconds.
+        $carbon = $value instanceof CarbonInterface ? $value : new Carbon($value);
 
         return $carbon->format('Y-m-d H:i:s.u');
     }
