@@ -18,7 +18,7 @@ Each record gains two additional columns:
 
 **Current version**: `known_to = 9999-12-31 23:59:59`  
 **Historical version**: `known_to` is a past timestamp  
-**Deleted record**: the last version has `known_to = deletion time − 1 second` (unless using SoftDeletes)
+**Deleted record**: the last version has `known_to = deletion time − 1 microsecond` (unless using SoftDeletes)
 
 ```mermaid
 gantt

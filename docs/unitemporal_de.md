@@ -18,7 +18,7 @@ Jeder Datensatz bekommt zwei zusätzliche Spalten:
 
 **Aktuelle Version**: `known_to = 9999-12-31 23:59:59`
 **Historische Version**: `known_to` ist ein vergangener Zeitpunkt
-**Gelöschter Datensatz**: Die letzte Version bekommt `known_to = Löschzeitpunkt - 1 Sekunde` (sofern du nicht SoftDeletes nutzt)
+**Gelöschter Datensatz**: Die letzte Version bekommt `known_to = Löschzeitpunkt - 1 Mikrosekunde` (sofern du nicht SoftDeletes nutzt)
 
 ```mermaid
 gantt
@@ -283,7 +283,7 @@ Schema::create('invoices', function (Blueprint $table) {
 
 | Typ | Empfehlung | Hinweis |
 |-----|-----------|---------|
-| `dateTime` | `known_from`, `known_to` | Sekundengenau, Standard |
+| `dateTime` | `known_from`, `known_to` | Mikrosekundengenau (Datenbank-Typ unterstützt nativ 6 Dezimalstellen) |
 | `timestamp` | Alternative | MySQL konvertiert in UTC, kann bei max-Wert Probleme geben |
 | `dateTimeTz` | Für multi-timezone | Erhöht Komplexität, nur nötig wenn absolute Klarheit |
 

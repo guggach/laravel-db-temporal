@@ -77,8 +77,13 @@ trait IsUniTemporal
 
     private function setTransactionTimestamps(): void
     {
-        $this->setAttribute($this->getColumnTrxFrom(), $this->freshTimestamp());
-        $this->setAttribute($this->getColumnTrxTo(), $this->getMaxTimestamp());
+        // Mikrosekunden sind Pflicht: zwei Versionen in derselben Sekunde
+        // (Batch-Prozesse!) wuerden sonst im PK (id, known_from, known_to)
+        // kollidieren. Direkte Array-Writes umgehen setAttribute, das fuer
+        // Datums-Casts ueber fromDateTime auf das Sekundenformat des
+        // Query-Grammars zurueckfaellt und µs abschneiden wuerde.
+        $this->attributes[$this->getColumnTrxFrom()] = $this->freshTimestamp()->format('Y-m-d H:i:s.u');
+        $this->attributes[$this->getColumnTrxTo()] = $this->getMaxTimestamp();
     }
 
     private function resolveTemporalConfig(): TemporalConfig

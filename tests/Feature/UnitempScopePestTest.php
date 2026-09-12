@@ -168,7 +168,7 @@ it('deletedSince returns empty when no records are deleted', function () {
 //     expect($count)->toBe(1);
 
 //     $now = new Carbon();
-//     $now = $now->format('Y-m-d H:i:s');
+//     $now = $now->format('Y-m-d H:i:s.u');
 
 //     $rec1 = UniTemporalId::where('id', 1)->where('known_from', '<=', $now)->where('known_to', '>=', $now)->first();
 
@@ -182,13 +182,13 @@ it('deletedSince returns empty when no records are deleted', function () {
 //     $maxDateTime = '9999-12-31 23:59:59';
 
 //     $recBeforeDel = UniTemporalId::where('id', 1)->latest('known_to')->first();
-//     expect($recBeforeDel->known_to->format('Y-m-d H:i:s'))->toBe($maxDateTime);
+//     expect($recBeforeDel->known_to->format('Y-m-d H:i:s.u'))->toBe($maxDateTime);
 
 //     sleep(1);
 
 //     $recBeforeDel->delete();
 
 //     $recAfterDel = UniTemporalId::where('id', 1)->latest('known_to')->first();
-//     expect($recAfterDel->known_to->format('Y-m-d H:i:s'))->not->toBe($maxDateTime);
+//     expect($recAfterDel->known_to->format('Y-m-d H:i:s.u'))->not->toBe($maxDateTime);
 
 // });

@@ -50,6 +50,12 @@ class TemporalConnection extends Connection
         $this->readPdo = $baseConnection->getReadPdo();
         $this->setQueryGrammar($baseConnection->getQueryGrammar());
         $this->setPostProcessor($baseConnection->getPostProcessor());
+
+        // The base connection's schema grammar is lazy: until the schema
+        // builder was used once, getSchemaGrammar() may return null even
+        // though the vendor types say otherwise. Materialise it deterministically
+        // before the proxy inherits it.
+        $baseConnection->useDefaultSchemaGrammar();
         $this->setSchemaGrammar($baseConnection->getSchemaGrammar());
 
         $this->defaultConfig = TemporalConfig::fromArray($config['uni-temporal']['defaults'] ?? null);
@@ -66,6 +72,30 @@ class TemporalConnection extends Connection
         return isset($this->tableConfigs[$table])
             ? TemporalConfig::fromArray($this->tableConfigs[$table])
             : null;
+    }
+
+    /**
+     * Schema-builder work (migrations, Schema:: facade, db:wipe) must run on
+     * the base connection: the proxy is not a driver-specific connection and
+     * the base connection provides the driver-specific builder (e.g.
+     * PostgresBuilder with dropAllTables support).
+     */
+    public function getSchemaBuilder()
+    {
+        return $this->baseConnection->getSchemaBuilder();
+    }
+
+    /**
+     * The custom driver resolver receives the parsed connection config
+     * without a "name" key, so this connection cannot resolve its own name
+     * from config. The base connection carries the correct name (it is
+     * created through the ConnectionFactory), so delegate identity to it —
+     * the migrator relies on getName()/getNameWithReadWriteType() to switch
+     * the default connection while running migrations.
+     */
+    public function getName()
+    {
+        return $this->baseConnection->getName();
     }
 
     public function getUniTemporalDefaults(): TemporalConfig

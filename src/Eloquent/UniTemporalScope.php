@@ -260,12 +260,18 @@ class UniTemporalScope implements Scope
         return $builder;
     }
 
-    private function resolveCarbon(Carbon|string|null $value): ?Carbon
+    /**
+     * Bind as a microseconds string: grammars truncate DateTime bindings to
+     * seconds, which would break comparisons against microsecond timestamps.
+     */
+    private function resolveCarbon(Carbon|string|null $value): ?string
     {
         if (is_null($value)) {
             return null;
         }
 
-        return $value instanceof Carbon ? $value : new Carbon($value);
+        $carbon = $value instanceof Carbon ? $value : new Carbon($value);
+
+        return $carbon->format('Y-m-d H:i:s.u');
     }
 }

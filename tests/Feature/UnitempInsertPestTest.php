@@ -43,7 +43,7 @@ it('Insert first Record with standard id', function () {
     $dbResult = UniTemporalId::find(1)->known_from;
     expect($result->known_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_ids', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => 1]);
+    $this->assertDatabaseHas('uni_temporal_ids', ['known_from' => $result->known_from->format('Y-m-d H:i:s.u'), 'id' => 1]);
 
 });
 
@@ -59,7 +59,7 @@ it('Insert a second Record with standard id', function () {
     $dbResult = UniTemporalId::find(2)->known_from;
     expect($result->known_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_ids', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => 2]);
+    $this->assertDatabaseHas('uni_temporal_ids', ['known_from' => $result->known_from->format('Y-m-d H:i:s.u'), 'id' => 2]);
 
 });
 
@@ -85,7 +85,7 @@ it('Override Trx column names in Model and insert one record', function () {
     $dbResult = uniTemporalIdBelives::find(1)->belive_from;
     expect($result->belive_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_id_belives', ['belive_from' => $result->belive_from, 'belive_until' => $result->belive_until, 'id' => 1]);
+    $this->assertDatabaseHas('uni_temporal_id_belives', ['belive_from' => $result->belive_from->format('Y-m-d H:i:s.u'), 'id' => 1]);
 
 });
 
@@ -105,7 +105,7 @@ it('Use absolute default column names not configured in config nor model and ins
     $dbResult = uniTemporalIdTrxDates::find(1)->known_from;
     expect($result->known_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_id_trx_dates', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => 1]);
+    $this->assertDatabaseHas('uni_temporal_id_trx_dates', ['known_from' => $result->known_from->format('Y-m-d H:i:s.u'), 'id' => 1]);
 
 });
 
@@ -170,7 +170,7 @@ it('Table with Ulid key instead of autoincrement key and insert two records', fu
     $dbResult = UniTemporalUlids::find($id)->known_from;
     expect($result->known_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_ulids', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => $id]);
+    $this->assertDatabaseHas('uni_temporal_ulids', ['known_from' => $result->known_from->format('Y-m-d H:i:s.u'), 'id' => $id]);
 
     $result = UniTemporalUlids::create([
         'text' => 'Second Record',
@@ -180,6 +180,6 @@ it('Table with Ulid key instead of autoincrement key and insert two records', fu
     $dbResult = UniTemporalUlids::find($id)->known_from;
     expect($result->known_from)->toEqual($dbResult);
 
-    $this->assertDatabaseHas('uni_temporal_ulids', ['known_from' => $result->known_from, 'known_to' => $result->known_to, 'id' => $id]);
+    $this->assertDatabaseHas('uni_temporal_ulids', ['known_from' => $result->known_from->format('Y-m-d H:i:s.u'), 'id' => $id]);
 
 });

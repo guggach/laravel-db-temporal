@@ -120,7 +120,7 @@ class UniTemporalBuilder extends Builder
         $values[$sequence] = $newId;
 
         if (! array_key_exists($this->columnTrxDateFrom, $values)) {
-            $values[$this->columnTrxDateFrom] = (new DateTime)->format('Y-m-d H:i:s');
+            $values[$this->columnTrxDateFrom] = (new DateTime)->format('Y-m-d H:i:s.u');
         }
 
         if (! array_key_exists($this->columnTrxDateTo, $values)) {
@@ -171,11 +171,11 @@ class UniTemporalBuilder extends Builder
                 }
             }
 
-            $timestamp = $updateTime->format('Y-m-d H:i:s');
+            $timestamp = $updateTime->format('Y-m-d H:i:s.u');
             $merged = array_merge($oldRecord, $values, [$this->columnTrxDateFrom => $timestamp]);
 
             $query->update([
-                $this->columnTrxDateTo => $updateTime->copy()->subSecond()->format('Y-m-d H:i:s'),
+                $this->columnTrxDateTo => $updateTime->copy()->subMilliseconds(1)->format('Y-m-d H:i:s.u'),
             ]);
 
             parent::insert($merged);
@@ -197,7 +197,7 @@ class UniTemporalBuilder extends Builder
         $now = new Carbon;
         $this->where($this->columnTrxDateTo, $this->maxTimestamp);
 
-        return parent::update([$this->columnTrxDateTo => $now->subSecond()->format('Y-m-d H:i:s')]);
+        return parent::update([$this->columnTrxDateTo => $now->subMilliseconds(1)->format('Y-m-d H:i:s.u')]);
     }
 
     /**
@@ -207,7 +207,7 @@ class UniTemporalBuilder extends Builder
     protected function setTransactionTimestamp(array $values): array
     {
         if ($this->calledByEloquent === false) {
-            $timestamp = (new DateTime)->format('Y-m-d H:i:s');
+            $timestamp = (new DateTime)->format('Y-m-d H:i:s.u');
 
             foreach ($values as $key => $value) {
                 $value[$this->columnTrxDateFrom] = $timestamp;
