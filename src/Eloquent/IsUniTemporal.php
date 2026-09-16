@@ -22,16 +22,15 @@ trait IsUniTemporal
 
     public function initializeIsUniTemporal(): void
     {
+        // Format-spezifische Casts nur für die Transaktionszeit: ein
+        // model-weites $dateFormat würde auch fachliche Datumsattribute
+        // mit Mikrosekunden schreiben und Equality-Vergleiche brechen.
         if (! isset($this->casts[$this->getColumnTrxFrom()])) {
-            $this->casts[$this->getColumnTrxFrom()] = 'datetime';
+            $this->casts[$this->getColumnTrxFrom()] = 'datetime:Y-m-d H:i:s.u';
         }
         if (! isset($this->casts[$this->getColumnTrxTo()])) {
-            $this->casts[$this->getColumnTrxTo()] = 'datetime';
+            $this->casts[$this->getColumnTrxTo()] = 'datetime:Y-m-d H:i:s.u';
         }
-
-        // DateTime-Casts (Lesepfad) muessen die Mikrosekunden erhalten —
-        // das Default-Format des Query-Grammars schneidet sie beim Parsen ab.
-        $this->dateFormat = 'Y-m-d H:i:s.u';
     }
 
     public function getMaxTimestamp(): string
