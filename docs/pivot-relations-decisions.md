@@ -168,12 +168,31 @@ Tests (alle grün): `tests/Feature/TemporalPivotUniTest.php` (7),
 `tests/Feature/TemporalPivotCompatibilityTest.php` (2). Gesamtsuite 72 passed, phpstan max ohne
 Fehler, Pint sauber.
 
-**Offen**
+**Phase 2 (bi-temporal) — umgesetzt (2026-09-18)**
 
-- **Phase 2 (bi-temporal):** VT-Defaults, `detach` = Gültigkeit schliessen + `forceDetach`,
-  `sync` über gültig∧bekannt, VT-Split bei `updateExistingPivot`, `asOf`/`validAsOf`/`knownAsOf`;
-  Doku-Empfehlung zur eigenen Entitätstabelle.
+- Reads filtern `valid_from <= heute <= valid_to` ∧ `known_to = max` ∧ `deleted_at IS NULL`.
+- `attach` ohne Attribute setzt `valid_from = heute`, `valid_to = Sentinel` → aktuell. Explizite
+  Werte sind erlaubt: `valid_from` in der Vergangenheit/heute ist aktuell; ein **zukünftiges**
+  `valid_from` wird vom Current-Read (inklusiver Filter `valid_from <= heute`) nicht geliefert,
+  ist aber via `validAsOf()`/`asOf()` mit passendem Stichtag lesbar.
+- `detach` schliesst die Gültigkeit über `BiTemporalBuilder::closeValidityAt()`: TT-Version
+  terminieren + neue Version mit `valid_to` auf der **letzten gültigen Grenze** — **Präzisierung zu
+  #15:** nicht `heute`, sondern `gestern` (bzw. jetzt−1s), weil der Read-Filter inklusiv ist und
+  `valid_to = heute` den Link heute noch anzeigen würde.
+- `sync` arbeitet über den gescopten Current-State (`gültig ∧ bekannt ∧ nicht gelöscht`); Entfernen
+  schliesst die Gültigkeit.
+- `updateExistingPivot` mit `valid_from`/`valid_to` nutzt die bestehende VT-Split-Logik, sonst TT.
+- `asOf($valid, $known)`, `validAsOf($valid)`, `knownAsOf($known)` über eine gesicherte Basis-Query.
+- Tests: `tests/Feature/TemporalPivotBiTest.php` (6).
+
+**Offen / Einschränkungen**
+
+- `forceDetach` (reines SoftDelete statt Gültigkeitsschluss) noch nicht als eigene API.
+- `asOf()` baut auf der bei der Relationserzeugung gesicherten Basis-Query auf — zusätzliche
+  Constraints aus der Relation-Definition (z.B. `->where('active', 1)`) werden dabei nicht
+  übernommen. Im Doku-Abschnitt vermerken.
+- Doku-Empfehlung zur eigenen Entitätstabelle bei komplexer Business-Zeit (Use Cases prüfen).
 - **Phase 3:** Morph-Härtung, Migrations-Helfer (Temporal-Spalten + Unique inkl. `known_to`),
   Doku „Temporal Pivots" + README-Hinweis.
-- `attach` mit `using` läuft aktuell direkt über den Builder (Casts via `castAttributes`),
-  nicht über `$pivot->save()` — im Doku-Abschnitt vermerken.
+- `attach` mit `using` läuft direkt über den Builder (Casts via `castAttributes`), nicht über
+  `$pivot->save()` — im Doku-Abschnitt vermerken.

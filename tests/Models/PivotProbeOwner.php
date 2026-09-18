@@ -62,4 +62,14 @@ class PivotProbeOwner extends Model
     {
         return $this->belongsToMany(PivotProbeTarget::class, 'id_pivot_probes', 'owner_id', 'target_id');
     }
+
+    /**
+     * Bi-temporale Pivot-Tabelle.
+     *
+     * @return BelongsToMany<PivotProbeTarget, $this>
+     */
+    public function biTargets(): BelongsToMany
+    {
+        return $this->belongsToMany(PivotProbeTarget::class, 'bi_pivot_probes', 'owner_id', 'target_id');
+    }
 }

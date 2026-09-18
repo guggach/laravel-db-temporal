@@ -201,6 +201,68 @@ class BiTemporalBuilder extends Builder
     }
 
     /**
+     * Gültigkeit der vom Query getroffenen, aktuell bekannten Records
+     * schliessen: die offene TT-Version wird terminiert und eine neue
+     * TT-Version mit `valid_to = $validTo` (inklusive) eingefügt — ohne
+     * Recht-Remainder. Ohne Argument wird die letzte gültige Grenze
+     * (gestern bzw. jetzt−1s) verwendet, damit der Record ab sofort als
+     * nicht mehr aktuell gilt. Der Query muss die Records bereits
+     * einschränken (z.B. aktuell gültig + bekannte IDs).
+     */
+    public function closeValidityAt(Carbon|string|null $validTo = null): int
+    {
+        $date = $validTo === null
+            ? $this->lastValidBoundary()
+            : $this->normalizeVtBoundary($validTo);
+        $now = new Carbon;
+        $nowStr = $now->format('Y-m-d H:i:s');
+
+        /** @var array<int, object> $oldRecs */
+        $oldRecs = $this->buildFindQuery()->get();
+        $count = 0;
+
+        foreach ($oldRecs as $oldRec) {
+            /** @var Record $oldRecord */
+            $oldRecord = (array) $oldRec;
+            $oldVtTo = $this->extractVtString($oldRecord[$this->columnValidTo] ?? null);
+
+            $this->terminateByValidTo($oldVtTo, $now);
+
+            parent::insert($this->normalizeVtRecord(array_merge($oldRecord, [
+                $this->columnValidTo => $date,
+                $this->columnKnownFrom => $nowStr,
+                $this->columnKnownTo => $this->maxTimestamp,
+            ])));
+
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /** Normalisiert eine VT-Grenze auf das Speicherformat (Tages-Präzision → 00:00:00). */
+    private function normalizeVtBoundary(Carbon|string|null $value): string
+    {
+        $date = $value instanceof Carbon
+            ? $value
+            : ($value !== null ? new Carbon($value) : new Carbon);
+
+        return $this->vtPrecision === 'datetime'
+            ? $date->format('Y-m-d H:i:s')
+            : $date->format('Y-m-d').' 00:00:00';
+    }
+
+    /** Letzte gültige Grenze „jetzt" (gestern bei Tages-Präzision, sonst jetzt−1s). */
+    private function lastValidBoundary(): string
+    {
+        $now = new Carbon;
+
+        return $this->vtPrecision === 'datetime'
+            ? $now->subSecond()->format('Y-m-d H:i:s')
+            : $now->subDay()->format('Y-m-d').' 00:00:00';
+    }
+
+    /**
      * Bi-temporal point query. VT first; TT defaults to now().
      */
     public function asOf(Carbon|string|null $vtDatetime, Carbon|string|null $ttDatetime = null): static

@@ -2,6 +2,7 @@
 
 namespace Guggach\LaravelDbTemporal\Relations\Concerns;
 
+use Carbon\Carbon;
 use Guggach\LaravelDbTemporal\Configuration\BiTemporalConfig;
 use Guggach\LaravelDbTemporal\Configuration\TemporalConfig;
 use Guggach\LaravelDbTemporal\Connections\TemporalConnection;
@@ -42,6 +43,14 @@ trait InteractsWithTemporalPivot
     protected ?TemporalConfig $pivotUniConfig = null;
 
     protected ?BiTemporalConfig $pivotBiConfig = null;
+
+    /**
+     * Basis-Query (Join + Fremdschlüssel) ohne Default-Current-Filter,
+     * gesichert für as-of.
+     *
+     * @var EloquentBuilder<*>|null
+     */
+    protected ?EloquentBuilder $pivotBaseQuery = null;
 
     /**
      * Spaltenlisting pro Connection|Tabelle (vermeidet wiederholte
@@ -257,6 +266,9 @@ trait InteractsWithTemporalPivot
             return;
         }
 
+        // Basis-Query für as-of sichern, bevor die Default-Current-Filter drankommen.
+        $this->pivotBaseQuery = clone $this->query;
+
         $this->applyCurrentPivotConstraints($this->query);
 
         $this->pivotColumns = array_values(array_unique(
@@ -329,9 +341,14 @@ trait InteractsWithTemporalPivot
             $query->whereIn($this->getQualifiedRelatedPivotKeyName(), (array) $ids);
         }
 
-        $results = $this->pivotSoftDeletes
-            ? $query->update(['deleted_at' => now()])
-            : $query->delete();
+        if ($this->pivotTemporalMode === 'bi' && $query instanceof BiTemporalBuilder) {
+            // Bi-temporal: Gültigkeit schliessen (VT), nicht soft-deleten.
+            $results = $query->closeValidityAt();
+        } elseif ($this->pivotSoftDeletes) {
+            $results = $query->update(['deleted_at' => now()]);
+        } else {
+            $results = $query->delete();
+        }
 
         if ($touch) {
             $this->touchIfTouching();
@@ -365,6 +382,66 @@ trait InteractsWithTemporalPivot
         }
 
         return $updated;
+    }
+
+    /**
+     * Bi-temporaler As-of-Zugriff: `$validAt` = fachlicher Stichtag,
+     * `$knownAt` = Wissensstand (Default jetzt). Ohne `$validAt` wird nur der
+     * Transaktionszeitpunkt gefiltert. Nur für bi-temporale Pivots.
+     *
+     * Achtung: baut die Relation-Query neu auf und übernimmt daher keine
+     * zusätzlichen Constraints aus der Relation-Definition.
+     */
+    public function asOf(Carbon|string|null $validAt = null, Carbon|string|null $knownAt = null): static
+    {
+        $this->resolvePivotTemporal();
+
+        if ($this->pivotTemporalMode !== 'bi') {
+            throw new LogicException('asOf ist nur für bi-temporale Pivot-Tabellen verfügbar.');
+        }
+
+        if ($this->pivotBaseQuery !== null) {
+            // Nur die Basis-Query (Join + FK) übernehmen, ohne Default-Current-Filter.
+            $this->query->setQuery(clone $this->pivotBaseQuery->getQuery());
+        }
+
+        $config = $this->biConfig();
+        $known = $knownAt !== null ? ($knownAt instanceof Carbon ? $knownAt : new Carbon($knownAt)) : new Carbon;
+
+        $this->query
+            ->where($this->table.'.'.$config->columnKnownFrom, '<=', $known->format('Y-m-d H:i:s'))
+            ->where($this->table.'.'.$config->columnKnownTo, '>=', $known->format('Y-m-d H:i:s'));
+
+        if ($validAt !== null) {
+            $this->applyValidRange($validAt instanceof Carbon ? $validAt : new Carbon($validAt));
+        }
+
+        return $this;
+    }
+
+    /** Gültigkeit zum Stichtag, bekannt jetzt. */
+    public function validAsOf(Carbon|string $validAt): static
+    {
+        return $this->asOf($validAt);
+    }
+
+    /** Zustand zum Wissensstand (ohne Gültigkeitsfilter). */
+    public function knownAsOf(Carbon|string $knownAt): static
+    {
+        return $this->asOf(null, $knownAt);
+    }
+
+    private function applyValidRange(Carbon $validAt): void
+    {
+        $config = $this->biConfig();
+
+        $value = $config->vtPrecision === 'datetime'
+            ? $validAt->format('Y-m-d H:i:s')
+            : $validAt->format('Y-m-d').' 00:00:00';
+
+        $this->query
+            ->where($this->table.'.'.$config->columnValidFrom, '<=', $value)
+            ->where($this->table.'.'.$config->columnValidTo, '>=', $value);
     }
 
     /**
