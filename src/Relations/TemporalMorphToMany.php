@@ -6,7 +6,7 @@ use Guggach\LaravelDbTemporal\Relations\Concerns\InteractsWithTemporalPivot;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 /**
- * `morphToMany`-Relation mit temporaler Pivot-Semantik.
+ * `morphToMany` relation with temporal pivot semantics.
  *
  * @template TRelatedModel of \Illuminate\Database\Eloquent\Model
  * @template TDeclaringModel of \Illuminate\Database\Eloquent\Model

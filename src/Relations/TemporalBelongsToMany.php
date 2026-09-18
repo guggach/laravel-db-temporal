@@ -7,11 +7,10 @@ use Guggach\LaravelDbTemporal\Relations\Concerns\InteractsWithTemporalPivot;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * `belongsToMany`-Relation mit temporaler Pivot-Semantik.
+ * `belongsToMany` relation with temporal pivot semantics.
  *
- * Wird von {@see HasTemporalPivotRelations}
- * automatisch zurückgegeben; nicht-temporale Pivot-Tabellen verhalten sich
- * exakt wie die Basis-Relation.
+ * Returned automatically by {@see HasTemporalPivotRelations}; non-temporal
+ * pivot tables behave exactly like the base relation.
  *
  * @template TRelatedModel of \Illuminate\Database\Eloquent\Model
  * @template TDeclaringModel of \Illuminate\Database\Eloquent\Model

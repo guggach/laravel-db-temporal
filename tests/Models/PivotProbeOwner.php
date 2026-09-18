@@ -33,7 +33,7 @@ class PivotProbeOwner extends Model
     }
 
     /**
-     * Nicht-temporale Pivot-Tabelle (muss sich exakt wie Standard-Laravel verhalten).
+     * Non-temporal pivot table (must behave exactly like standard Laravel).
      *
      * @return BelongsToMany<PivotProbeTarget, $this>
      */
@@ -43,7 +43,7 @@ class PivotProbeOwner extends Model
     }
 
     /**
-     * Temporale Pivot-Tabelle mit `->using()` + Marker-Trait (Erkennung ohne Schema-Zwang).
+     * Temporal pivot table with `->using()` + marker trait (detection without relying on the schema).
      *
      * @return BelongsToMany<PivotProbeTarget, $this, MarkedUniPivot>
      */
@@ -54,7 +54,7 @@ class PivotProbeOwner extends Model
     }
 
     /**
-     * Temporale Pivot-Tabelle mit Surrogat-`id` + SoftDelete (App-Muster).
+     * Temporal pivot table with a surrogate `id` + SoftDelete (app pattern).
      *
      * @return BelongsToMany<PivotProbeTarget, $this>
      */
@@ -64,7 +64,7 @@ class PivotProbeOwner extends Model
     }
 
     /**
-     * Bi-temporale Pivot-Tabelle.
+     * Bi-temporal pivot table.
      *
      * @return BelongsToMany<PivotProbeTarget, $this>
      */

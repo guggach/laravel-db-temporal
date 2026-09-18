@@ -86,9 +86,9 @@ it('insert one record for Id 1 and 3 rec Id 2 -> count id 2 equals 3', function 
 
 it('creates three distinct versions for three updates in the same second', function () {
 
-    // Batch-Prozesse schreiben schneller als eine Sekunde vergeht — die
-    // PK-Tripel (id, known_from, known_to) muessen dank Mikrosekunden
-    // dennoch eindeutig bleiben (vorher: Unique-Constraint-Fehler).
+    // Batch processes write faster than a second passes — thanks to
+    // microseconds the PK triples (id, known_from, known_to) still stay
+    // unique (previously: unique constraint violation).
     $rec = UniTemporalId::create(['text' => 'First Record']);
     $rec->text = 'Second Record';
     $rec->save();
@@ -105,8 +105,8 @@ it('creates three distinct versions for three updates in the same second', funct
     expect($versions)->toHaveCount(4)
         ->and($versions->map(fn ($v) => $v->id.'|'.$v->known_from->format('Y-m-d H:i:s.u').'|'.$v->known_to->format('Y-m-d H:i:s.u'))->unique()->count())->toBe(4);
 
-    // Intervalle sind lueckenlos: jede Version endet genau 1 Mikrosekunde
-    // bevor die naechste beginnt.
+    // The intervals are gapless: each version ends exactly 1 microsecond
+    // before the next one starts.
     foreach ($versions as $index => $version) {
         if ($index === $versions->count() - 1) {
             expect($version->known_to->format('Y-m-d H:i:s.u'))->toBe('9999-12-31 23:59:59.000000');

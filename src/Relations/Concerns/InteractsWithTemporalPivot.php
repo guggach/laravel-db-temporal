@@ -18,17 +18,17 @@ use Illuminate\Database\Query\Builder;
 use LogicException;
 
 /**
- * Temporale Pivot-Semantik für eine `BelongsToMany`/`MorphToMany`-Relation.
+ * Temporal pivot semantics for a `BelongsToMany`/`MorphToMany` relation.
  *
- * Die Pivot-Tabelle bleibt die „normale" Laravel-Pivot-Tabelle, wird aber
- * versioniert: Reads liefern nur den aktuellen Zustand, `attach` fügt eine
- * neue Version ein, `detach`/`updateExistingPivot` schliessen die aktuelle
- * Version (und setzen SoftDelete, wenn vorhanden). Nicht-temporale Pivot-
- * Tabellen delegieren unverändert an die Basis-Relation.
+ * The pivot table stays a "normal" Laravel pivot table but is versioned:
+ * reads return the current state only, `attach` inserts a new version,
+ * `detach`/`updateExistingPivot` close the current version (and set the soft
+ * delete column when present). Non-temporal pivot tables delegate unchanged
+ * to the base relation.
  *
- * Erkennung (in dieser Reihenfolge): Marker-Trait am `using`-Model, dann
- * Connection-Config (uni-/bi-temporal.tables), dann Schema (`known_from`/
- * `known_to`, optional `valid_from`/`valid_to`).
+ * Detection order: marker trait on the `using` model, then the connection
+ * config (uni-/bi-temporal.tables), then the schema (`known_from`/`known_to`,
+ * optionally `valid_from`/`valid_to`).
  */
 trait InteractsWithTemporalPivot
 {
@@ -45,16 +45,16 @@ trait InteractsWithTemporalPivot
     protected ?BiTemporalConfig $pivotBiConfig = null;
 
     /**
-     * Basis-Query (Join + Fremdschlüssel) ohne Default-Current-Filter,
-     * gesichert für as-of.
+     * Base query (join + foreign key) without the default current filters,
+     * kept for as-of reads.
      *
      * @var EloquentBuilder<*>|null
      */
     protected ?EloquentBuilder $pivotBaseQuery = null;
 
     /**
-     * Spaltenlisting pro Connection|Tabelle (vermeidet wiederholte
-     * Schema-Abfragen bei jeder Relationserzeugung).
+     * Column listing per connection|table (avoids repeated schema lookups on
+     * every relation construction).
      *
      * @var array<string, array<int, string>>
      */
@@ -158,12 +158,12 @@ trait InteractsWithTemporalPivot
 
     protected function uniConfig(): TemporalConfig
     {
-        return $this->pivotUniConfig ?? throw new LogicException('Uni-temporale Pivot-Config nicht aufgelöst.');
+        return $this->pivotUniConfig ?? throw new LogicException('Uni-temporal pivot config was not resolved.');
     }
 
     protected function biConfig(): BiTemporalConfig
     {
-        return $this->pivotBiConfig ?? throw new LogicException('Bi-temporale Pivot-Config nicht aufgelöst.');
+        return $this->pivotBiConfig ?? throw new LogicException('Bi-temporal pivot config was not resolved.');
     }
 
     protected function pivotKnownTo(): string
@@ -181,8 +181,8 @@ trait InteractsWithTemporalPivot
     }
 
     /**
-     * Die temporalen Spalten zusätzlich zu den konfigurierten Pivot-Spalten
-     * selektieren, damit `->pivot` sie exponiert.
+     * Select the temporal columns in addition to the configured pivot columns
+     * so `->pivot` exposes them.
      *
      * @return array<int, string>
      */
@@ -266,7 +266,7 @@ trait InteractsWithTemporalPivot
             return;
         }
 
-        // Basis-Query für as-of sichern, bevor die Default-Current-Filter drankommen.
+        // Keep the base query for as-of before the default current filters are applied.
         $this->pivotBaseQuery = clone $this->query;
 
         $this->applyCurrentPivotConstraints($this->query);
@@ -278,11 +278,11 @@ trait InteractsWithTemporalPivot
     }
 
     /**
-     * `$ids` ist die Related-Seite (Werte des `$relatedPivotKey`, z.B. die IDs
-     * der Targets) — die foreign-Seite (`$foreignPivotKey`, z.B. `owner_id`)
-     * kommt automatisch aus dem Parent-Model. Eine Composite-Identität
-     * `(foreign, related)` wird also über Parent + `$ids` gebildet; weitere
-     * Pivot-Spalten (Rolle, primär, …) gehören in `$attributes`.
+     * `$ids` is the related side (values of `$relatedPivotKey`, e.g. the
+     * target ids) — the foreign side (`$foreignPivotKey`, e.g. `owner_id`) is
+     * taken from the parent model automatically. A composite identity
+     * `(foreign, related)` is therefore built from the parent plus `$ids`;
+     * additional pivot columns (role, primary, …) belong in `$attributes`.
      *
      * @param  mixed  $ids
      * @param  array<string, mixed>  $attributes
@@ -315,9 +315,9 @@ trait InteractsWithTemporalPivot
     }
 
     /**
-     * `$ids` ist die Related-Seite (Werte des `$relatedPivotKey`); `null`
-     * entfernt alle Zuordnungen des Parents. Die foreign-Seite kommt aus dem
-     * Parent-Model.
+     * `$ids` is the related side (values of `$relatedPivotKey`); `null`
+     * removes all of the parent's links. The foreign side is taken from the
+     * parent model.
      *
      * @param  mixed  $ids
      */
@@ -342,7 +342,7 @@ trait InteractsWithTemporalPivot
         }
 
         if ($this->pivotTemporalMode === 'bi' && $query instanceof BiTemporalBuilder) {
-            // Bi-temporal: Gültigkeit schliessen (VT), nicht soft-deleten.
+            // Bi-temporal: close the validity (VT) instead of soft deleting.
             $results = $query->closeValidityAt();
         } elseif ($this->pivotSoftDeletes) {
             $results = $query->update(['deleted_at' => now()]);
@@ -385,23 +385,23 @@ trait InteractsWithTemporalPivot
     }
 
     /**
-     * Bi-temporaler As-of-Zugriff: `$validAt` = fachlicher Stichtag,
-     * `$knownAt` = Wissensstand (Default jetzt). Ohne `$validAt` wird nur der
-     * Transaktionszeitpunkt gefiltert. Nur für bi-temporale Pivots.
+     * Bi-temporal as-of access: `$validAt` is the business date, `$knownAt`
+     * the knowledge date (default now). Without `$validAt` only the
+     * transaction time is filtered. Bi-temporal pivots only.
      *
-     * Achtung: baut die Relation-Query neu auf und übernimmt daher keine
-     * zusätzlichen Constraints aus der Relation-Definition.
+     * Note: rebuilds the relation query and therefore does not carry over
+     * extra constraints from the relation definition.
      */
     public function asOf(Carbon|string|null $validAt = null, Carbon|string|null $knownAt = null): static
     {
         $this->resolvePivotTemporal();
 
         if ($this->pivotTemporalMode !== 'bi') {
-            throw new LogicException('asOf ist nur für bi-temporale Pivot-Tabellen verfügbar.');
+            throw new LogicException('asOf() is only available for bi-temporal pivot tables.');
         }
 
         if ($this->pivotBaseQuery !== null) {
-            // Nur die Basis-Query (Join + FK) übernehmen, ohne Default-Current-Filter.
+            // Take only the base query (join + FK), without the default current filters.
             $this->query->setQuery(clone $this->pivotBaseQuery->getQuery());
         }
 
@@ -419,13 +419,13 @@ trait InteractsWithTemporalPivot
         return $this;
     }
 
-    /** Gültigkeit zum Stichtag, bekannt jetzt. */
+    /** Valid state at the given date, as known now. */
     public function validAsOf(Carbon|string $validAt): static
     {
         return $this->asOf($validAt);
     }
 
-    /** Zustand zum Wissensstand (ohne Gültigkeitsfilter). */
+    /** State at the given knowledge date (no validity filter). */
     public function knownAsOf(Carbon|string $knownAt): static
     {
         return $this->asOf(null, $knownAt);
@@ -445,8 +445,8 @@ trait InteractsWithTemporalPivot
     }
 
     /**
-     * Pivot-Attribute casten und auf eine string-indizierte Form normalisieren
-     * (der Framework-Cast liefert einen untypisierten `array`).
+     * Cast the pivot attributes and normalise them to a string-indexed array
+     * (the framework cast returns an untyped `array`).
      *
      * @param  array<array-key, mixed>  $attributes
      * @return array<string, mixed>

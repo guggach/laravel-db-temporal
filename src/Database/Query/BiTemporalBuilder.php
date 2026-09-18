@@ -201,13 +201,13 @@ class BiTemporalBuilder extends Builder
     }
 
     /**
-     * Gültigkeit der vom Query getroffenen, aktuell bekannten Records
-     * schliessen: die offene TT-Version wird terminiert und eine neue
-     * TT-Version mit `valid_to = $validTo` (inklusive) eingefügt — ohne
-     * Recht-Remainder. Ohne Argument wird die letzte gültige Grenze
-     * (gestern bzw. jetzt−1s) verwendet, damit der Record ab sofort als
-     * nicht mehr aktuell gilt. Der Query muss die Records bereits
-     * einschränken (z.B. aktuell gültig + bekannte IDs).
+     * Close the valid-time of the currently known records matched by the
+     * query: terminate the open TT version and insert a new TT version with
+     * `valid_to = $validTo` (inclusive), without a right remainder. Without
+     * an argument the last valid boundary (yesterday, or now−1s for datetime
+     * precision) is used, so the record stops being current immediately. The
+     * query must already constrain the records (e.g. currently valid +
+     * known ids).
      */
     public function closeValidityAt(Carbon|string|null $validTo = null): int
     {
@@ -240,7 +240,7 @@ class BiTemporalBuilder extends Builder
         return $count;
     }
 
-    /** Normalisiert eine VT-Grenze auf das Speicherformat (Tages-Präzision → 00:00:00). */
+    /** Normalise a valid-time boundary to the storage format (day precision → 00:00:00). */
     private function normalizeVtBoundary(Carbon|string|null $value): string
     {
         $date = $value instanceof Carbon
@@ -252,7 +252,7 @@ class BiTemporalBuilder extends Builder
             : $date->format('Y-m-d').' 00:00:00';
     }
 
-    /** Letzte gültige Grenze „jetzt" (gestern bei Tages-Präzision, sonst jetzt−1s). */
+    /** Last valid boundary "now" (yesterday for day precision, otherwise now−1s). */
     private function lastValidBoundary(): string
     {
         $now = new Carbon;

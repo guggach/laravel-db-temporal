@@ -3,7 +3,7 @@
 **Paket:** `guggach/laravel-db-temporal`
 **Datum:** 2026-09-17
 **Status:** Entschieden (2026-09-17) — API eingefroren, Grundlage für die Implementierung
-**Grundlage:** `docs/pivot-relations-ticket.md`
+**Grundlage:** `docs/temp/pivot-relations-ticket.md`
 **Prämisse:** Wenn möglich soll sich das Verhalten **wie in einem normalen Laravel-Datenmodell**
 anfühlen. Sonderregeln nur, wo die Zeitachse es zwingend erfordert.
 

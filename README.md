@@ -101,6 +101,32 @@ Address::asOf('2024-05-15', '2024-06-01')->find(1)->street; // 'Musterstrasse 10
 
 ---
 
+## Temporal pivot relations
+
+Many-to-many relations whose pivot table is versioned. Add
+`HasTemporalPivotRelations` to the model and keep using `belongsToMany()` /
+`morphToMany()`; `attach`, `detach`, `sync` and `updateExistingPivot` preserve
+the full history (uni- and bi-temporal, optional soft delete).
+
+```php
+use Guggach\LaravelDbTemporal\Eloquent\HasTemporalPivotRelations;
+
+class Company extends Model
+{
+    use HasTemporalPivotRelations;
+
+    public function contacts(): BelongsToMany
+    {
+        return $this->belongsToMany(Person::class, 'company_contacts');
+    }
+}
+```
+
+**[→ Full pivot documentation (EN)](docs/pivot-relations.md)** ·
+**[Pivot-Dokumentation (DE)](docs/pivot-relations_de.md)**
+
+---
+
 ## Testing
 
 ```bash

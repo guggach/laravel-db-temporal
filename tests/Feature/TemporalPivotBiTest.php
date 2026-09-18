@@ -70,8 +70,8 @@ it('closes the validity on detach', function () {
 
     expect($owner->biTargets()->count())->toBe(0);
 
-    // Detach wirkt sofort: valid_to liegt auf der letzten gültigen Grenze (gestern),
-    // damit der inklusive Read-Filter (`valid_to >= heute`) den Link ausblendet.
+    // Detach takes effect immediately: valid_to is set to the last valid boundary
+    // (yesterday) so the inclusive read filter (`valid_to >= today`) hides the link.
     $current = DB::table('bi_pivot_probes')->where('known_to', '9999-12-31 23:59:59')->get();
     expect($current)->toHaveCount(1)
         ->and($current->first()->valid_to)->toBe(now()->subDay()->format('Y-m-d').' 00:00:00');
@@ -115,7 +115,7 @@ it('reads the valid state as of a date', function () {
     $owner->biTargets()->attach($target->id, ['valid_from' => '2020-01-01']);
     expect($owner->biTargets()->count())->toBe(1);
 
-    // Detach schliesst die Gültigkeit ab gestern (2026) → Link gültig [2020, 2026-09-17]
+    // Detach closes the validity at yesterday (2026) -> the link was valid [2020, 2026-09-17]
     $owner->biTargets()->detach($target->id);
 
     expect($owner->biTargets()->count())->toBe(0)

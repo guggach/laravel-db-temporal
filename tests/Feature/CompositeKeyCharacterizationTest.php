@@ -8,16 +8,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Characterizing-Test: dokumentiert den aktuellen Ist-Stand für eine reine
- * Composite-Key-Tabelle [a_id, b_id, known_from, known_to] (KEIN id).
+ * Characterizing test: documents the current behaviour for a pure composite
+ * key table [a_id, b_id, known_from, known_to] (NO id).
  *
- * Query-Builder: insert/update/delete (composite WHERE) funktionieren,
- * insertGetId()/delete($id) nicht (Single-Key-Annahme).
- * Eloquent: kein echter Composite-Key — performInsert erzeugt einen
- * Surrogat-Key über getKeyName() (Default "id").
+ * Query builder: insert/update/delete (composite WHERE) work; insertGetId()
+ * and delete($id) do not (single-key assumption).
+ * Eloquent: no real composite key — performInsert generates a surrogate key
+ * through getKeyName() (default "id").
  *
- * Diese Tests halten das Verhalten fest, bis das Package Composite-Pivots
- * unterstützt (siehe docs/pivot-relations-ticket.md).
+ * These tests pin the behaviour until the package supports composite pivots
+ * (see docs/temp/pivot-relations-ticket.md).
  */
 beforeEach(function () {
     Schema::create('composite_temporal_probes', function ($table) {
@@ -54,7 +54,7 @@ function compositeModel(): Model
     };
 }
 
-it('probe 1: query builder insert() funktioniert mit composite key', function () {
+it('probe 1: query builder insert() works with a composite key', function () {
     $ok = compositeBuilder()->insert(['a_id' => 1, 'b_id' => 2, 'role' => 'x']);
 
     $row = DB::table('composite_temporal_probes')->first();
@@ -63,12 +63,12 @@ it('probe 1: query builder insert() funktioniert mit composite key', function ()
         ->and($row->known_to)->toBe('9999-12-31 23:59:59');
 });
 
-it('probe 2: query builder insertGetId() scheitert ohne id-spalte', function () {
+it('probe 2: query builder insertGetId() fails without an id column', function () {
     $this->expectException(Throwable::class);
     compositeBuilder()->insertGetId(['a_id' => 1, 'b_id' => 2]);
 });
 
-it('probe 3: query builder update() versioniert composite rows', function () {
+it('probe 3: query builder update() versions composite rows', function () {
     compositeBuilder()->insert(['a_id' => 1, 'b_id' => 2, 'role' => 'x']);
 
     $affected = compositeBuilder()->where('a_id', 1)->where('b_id', 2)->update(['role' => 'y']);
@@ -80,7 +80,7 @@ it('probe 3: query builder update() versioniert composite rows', function () {
         ->and(DB::table('composite_temporal_probes')->count())->toBe(2);
 });
 
-it('probe 4: query builder delete() mit composite where schliesst known_to', function () {
+it('probe 4: query builder delete() with a composite where closes known_to', function () {
     compositeBuilder()->insert(['a_id' => 1, 'b_id' => 2, 'role' => 'x']);
 
     $affected = compositeBuilder()->where('a_id', 1)->where('b_id', 2)->delete();
@@ -89,22 +89,22 @@ it('probe 4: query builder delete() mit composite where schliesst known_to', fun
         ->and(DB::table('composite_temporal_probes')->where('known_to', '9999-12-31 23:59:59')->count())->toBe(0);
 });
 
-it('probe 5: query builder delete($id) scheitert ohne id-spalte', function () {
+it('probe 5: query builder delete($id) fails without an id column', function () {
     $this->expectException(Throwable::class);
     compositeBuilder()->delete(1);
 });
 
-it('probe 6: max(id) ohne id-spalte (erwartet Fehler oder null)', function () {
+it('probe 6: max(id) without an id column (expects error or null)', function () {
     $result = compositeBuilder()->max('id');
     expect($result)->toBeNull();
 });
 
-it('probe 7: eloquent create() ohne id-spalte', function () {
+it('probe 7: eloquent create() without an id column', function () {
     $this->expectException(Throwable::class);
     compositeModel()::create(['a_id' => 1, 'b_id' => 2, 'role' => 'x']);
 });
 
-it('probe 8: eloquent create() mit gesetztem primaryKey a_id (trick)', function () {
+it('probe 8: eloquent create() with primaryKey a_id set (workaround)', function () {
     $model = new class extends Model implements UniTemporalModel
     {
         use IsUniTemporal;
@@ -120,7 +120,7 @@ it('probe 8: eloquent create() mit gesetztem primaryKey a_id (trick)', function 
         public $incrementing = false;
     };
 
-    // Wird a_id überschrieben/korrekt behandelt?
+    // Is a_id overwritten / handled correctly?
     $model::create(['a_id' => 5, 'b_id' => 2, 'role' => 'x']);
 
     $row = DB::table('composite_temporal_probes')->first();

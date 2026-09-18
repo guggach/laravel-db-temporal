@@ -11,12 +11,11 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 /**
- * Aktiviert temporale Pivot-Relationen auf einem Model: `belongsToMany()` und
- * `morphToMany()` liefern automatisch die temporalen Relation-Klassen, die
- * Pivot-Tabellen versionieren (uni/bi-temporal) statt sie in-place zu
- * verändern.
+ * Enables temporal pivot relations on a model: `belongsToMany()` and
+ * `morphToMany()` return the temporal relation classes, which version pivot
+ * tables (uni-/bi-temporal) instead of mutating them in place.
  *
- * Nicht-temporale Pivot-Tabellen verhalten sich unverändert.
+ * Non-temporal pivot tables behave unchanged.
  */
 trait HasTemporalPivotRelations
 {

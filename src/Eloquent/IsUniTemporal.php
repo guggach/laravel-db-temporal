@@ -22,9 +22,9 @@ trait IsUniTemporal
 
     public function initializeIsUniTemporal(): void
     {
-        // Format-spezifische Casts nur für die Transaktionszeit: ein
-        // model-weites $dateFormat würde auch fachliche Datumsattribute
-        // mit Mikrosekunden schreiben und Equality-Vergleiche brechen.
+        // Format-specific casts for transaction time only: a model-wide
+        // $dateFormat would also write business date attributes with
+        // microseconds and break equality comparisons.
         if (! isset($this->casts[$this->getColumnTrxFrom()])) {
             $this->casts[$this->getColumnTrxFrom()] = 'datetime:Y-m-d H:i:s.u';
         }
@@ -80,11 +80,11 @@ trait IsUniTemporal
 
     private function setTransactionTimestamps(): void
     {
-        // Mikrosekunden sind Pflicht: zwei Versionen in derselben Sekunde
-        // (Batch-Prozesse!) wuerden sonst im PK (id, known_from, known_to)
-        // kollidieren. Direkte Array-Writes umgehen setAttribute, das fuer
-        // Datums-Casts ueber fromDateTime auf das Sekundenformat des
-        // Query-Grammars zurueckfaellt und µs abschneiden wuerde.
+        // Microseconds are mandatory: two versions within the same second
+        // (batch processes!) would otherwise collide on the composite PK
+        // (id, known_from, known_to). Direct array writes bypass setAttribute,
+        // which for date casts falls back through fromDateTime to the query
+        // grammar's second format and would truncate microseconds.
         $this->attributes[$this->getColumnTrxFrom()] = $this->freshTimestamp()->format('Y-m-d H:i:s.u');
         $this->attributes[$this->getColumnTrxTo()] = $this->getMaxTimestamp();
     }

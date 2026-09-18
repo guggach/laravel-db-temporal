@@ -40,10 +40,10 @@ function openRows(int $id): Collection
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Szenario 1 — Grafik 1: Normales Update (Adressänderung)
+// Scenario 1 - Figure 1: normal update (address change)
 // ─────────────────────────────────────────────────────────────────────────────
 
-it('Grafik 1: normal update creates left remainder and new record', function () {
+it('Figure 1: normal update creates left remainder and new record', function () {
     // Initial insert: Musterstrasse 10, valid from 2024-04-01
     $item = BiTemporalItem::create(['id' => 1, 'text' => 'Musterstrasse 10', 'valid_from' => '2024-04-01']);
 
@@ -73,7 +73,7 @@ it('Grafik 1: normal update creates left remainder and new record', function () 
         ->and($rec2->text)->toBe('Maierstrasse 2');
 });
 
-it('Grafik 1: asOf(now, May) returns old address via remainder', function () {
+it('Figure 1: asOf(now, May) returns old address via remainder', function () {
     BiTemporalItem::create(['id' => 1, 'text' => 'Musterstrasse 10', 'valid_from' => '2024-04-01']);
     sleep(1);
 
@@ -89,7 +89,7 @@ it('Grafik 1: asOf(now, May) returns old address via remainder', function () {
         ->and($result->text)->toBe('Musterstrasse 10');
 });
 
-it('Grafik 1: currentVersion returns new address', function () {
+it('Figure 1: currentVersion returns new address', function () {
     BiTemporalItem::create(['id' => 1, 'text' => 'Musterstrasse 10', 'valid_from' => '2024-04-01']);
     sleep(1);
 
@@ -103,11 +103,11 @@ it('Grafik 1: currentVersion returns new address', function () {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Szenario 2 — Grafik 2: Korrektur (gleicher valid_from → kein Remainder)
+// Scenario 2 - Figure 2: correction (same valid_from -> no remainder)
 // ─────────────────────────────────────────────────────────────────────────────
 
-it('Grafik 2: correction with same valid_from creates no left remainder', function () {
-    // Start from Grafik 1 end-state: Rec1' and Rec2 open
+it('Figure 2: correction with same valid_from creates no left remainder', function () {
+    // Start from the Figure 1 end state: Rec1' and Rec2 open
     insertRaw(1, 'Musterstrasse 10', '2024-04-01', '2024-07-14', '2024-06-01 10:00:00', '9999-12-31 23:59:59');
     insertRaw(1, 'Maierstrasse 2', '2024-07-15', '9999-12-31', '2024-07-15 00:00:00', '9999-12-31 23:59:59');
 
@@ -126,7 +126,7 @@ it('Grafik 2: correction with same valid_from creates no left remainder', functi
     expect($rec3->text)->toBe('Maierstrasse 4');
 });
 
-it('Grafik 2: TT-archive retains the wrong house number before correction', function () {
+it('Figure 2: TT-archive retains the wrong house number before correction', function () {
     insertRaw(1, 'Musterstrasse 10', '2024-04-01', '2024-07-14', '2024-06-01 10:00:00', '9999-12-31 23:59:59');
     insertRaw(1, 'Maierstrasse 2', '2024-07-15', '9999-12-31', '2024-07-15 00:00:00', '9999-12-31 23:59:59');
 
@@ -147,10 +147,10 @@ it('Grafik 2: TT-archive retains the wrong house number before correction', func
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Szenario 3 — Grafik 3: Einschub zwischen bestehende Records (Discount)
+// Scenario 3 - Figure 3: insertion between existing records (discount)
 // ─────────────────────────────────────────────────────────────────────────────
 
-it('Grafik 3: discount insertion creates left and right remainders', function () {
+it('Figure 3: discount insertion creates left and right remainders', function () {
     // Start with Rec2' (120, Jul15–Aug31) and Rec3 (130, Sep01–∞), both TT-open
     insertRaw(7, '120.00', '2024-07-15', '2024-08-31', '2024-07-15 00:00:00', '9999-12-31 23:59:59');
     insertRaw(7, '130.00', '2024-09-01', '9999-12-31', '2024-08-01 00:00:00', '9999-12-31 23:59:59');
@@ -185,7 +185,7 @@ it('Grafik 3: discount insertion creates left and right remainders', function ()
         ->and($rec3prime->text)->toBe('130.00');
 });
 
-it('Grafik 3: no gaps — every VT point returns exactly one open record', function () {
+it('Figure 3: no gaps — every VT point returns exactly one open record', function () {
     insertRaw(7, '120.00', '2024-07-15', '2024-08-31', '2024-07-15 00:00:00', '9999-12-31 23:59:59');
     insertRaw(7, '130.00', '2024-09-01', '9999-12-31', '2024-08-01 00:00:00', '9999-12-31 23:59:59');
 

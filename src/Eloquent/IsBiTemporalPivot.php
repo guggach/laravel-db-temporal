@@ -3,9 +3,9 @@
 namespace Guggach\LaravelDbTemporal\Eloquent;
 
 /**
- * Marker-Trait für ein Pivot-Model einer bi-temporalen Pivot-Tabelle.
+ * Marker trait for the pivot model of a bi-temporal pivot table.
  *
- * Siehe {@see IsUniTemporalPivot}. Die Versionierung läuft über den
- * BiTemporalBuilder der Relation.
+ * See {@see IsUniTemporalPivot}. Versioning runs through the relation's
+ * BiTemporalBuilder.
  */
 trait IsBiTemporalPivot {}
