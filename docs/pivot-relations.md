@@ -176,6 +176,25 @@ Schema::create('company_contact_persons', function (Blueprint $table) {
 });
 ```
 
+### Generating the migration
+
+A new pivot table migration can be scaffolded:
+
+```bash
+php artisan temporal:make-pivot company_contact_persons \
+    --keys=company_id,person_id \
+    --soft-deletes
+
+# bi-temporal with a surrogate id
+php artisan temporal:make-pivot company_contact_persons \
+    --keys=company_id,person_id \
+    --bi-temporal --surrogate-id
+```
+
+The generated migration creates the temporal columns, the composite primary key
+(or the surrogate id) and the unique index. Add your extra pivot columns (e.g.
+`role_at_company`) afterwards.
+
 ## API reference
 
 | Method | Description |

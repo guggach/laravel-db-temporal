@@ -185,14 +185,18 @@ Fehler, Pint sauber.
 - `asOf($valid, $known)`, `validAsOf($valid)`, `knownAsOf($known)` über eine gesicherte Basis-Query.
 - Tests: `tests/Feature/TemporalPivotBiTest.php` (6).
 
-**Offen / Einschränkungen**
+**Phase 3 (Morph, Migrations-Helfer, Doku) — umgesetzt (2026-09-18)**
+
+- Morph: `TemporalMorphToMany` funktioniert; Tests `tests/Feature/TemporalPivotMorphTest.php`.
+- Migrations-Helfer: `php artisan temporal:make-pivot` generiert eine Pivot-Migration
+  (composite/surrogate, uni/bi, SoftDelete, Unique inkl. `known_to`).
+- Doku: `docs/pivot-relations.md` + `docs/pivot-relations_de.md`; README-Hinweise (EN/DE).
+  Code-Kommentare/Exceptions auf Englisch; Arbeitsdateien nach `docs/temp/`.
+
+**Offen / Einschränkungen (dokumentiert)**
 
 - `forceDetach` (reines SoftDelete statt Gültigkeitsschluss) noch nicht als eigene API.
-- `asOf()` baut auf der bei der Relationserzeugung gesicherten Basis-Query auf — zusätzliche
-  Constraints aus der Relation-Definition (z.B. `->where('active', 1)`) werden dabei nicht
-  übernommen. Im Doku-Abschnitt vermerken.
-- Doku-Empfehlung zur eigenen Entitätstabelle bei komplexer Business-Zeit (Use Cases prüfen).
-- **Phase 3:** Morph-Härtung, Migrations-Helfer (Temporal-Spalten + Unique inkl. `known_to`),
-  Doku „Temporal Pivots" + README-Hinweis.
+- `asOf()` übernimmt keine zusätzlichen Constraints aus der Relation-Definition.
 - `attach` mit `using` läuft direkt über den Builder (Casts via `castAttributes`), nicht über
-  `$pivot->save()` — im Doku-Abschnitt vermerken.
+  `$pivot->save()`.
+- IDs via `max(id) + 1` (Nebenläufigkeit) — dokumentiert.

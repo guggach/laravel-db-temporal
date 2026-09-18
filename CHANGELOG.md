@@ -2,6 +2,15 @@
 
 All notable changes to `laravel-db-temporal` will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Temporal pivot relations: `HasTemporalPivotRelations` makes `belongsToMany`/`morphToMany` version their pivot table (uni- and bi-temporal, optional soft delete) while keeping the usual `attach`/`detach`/`sync`/`updateExistingPivot` API. Bi-temporal pivots support `asOf()`, `validAsOf()` and `knownAsOf()`.
+- Marker traits `IsUniTemporalPivot` / `IsBiTemporalPivot` for custom pivot models (`->using()`).
+- `php artisan temporal:make-pivot` scaffolds a temporal pivot migration (composite key or surrogate id, uni/bi, soft delete, unique index).
+- Documentation: `docs/pivot-relations.md` and `docs/pivot-relations_de.md`.
+- Behaviour tests for uni-/bi-temporal and morph pivots, plus a composite-key characterization test.
+
 ## [v0.0.1] – 2026-09-12
 
 ### Fixed

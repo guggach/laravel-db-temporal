@@ -5,6 +5,7 @@ namespace Guggach\LaravelDbTemporal\Tests\Models;
 use Guggach\LaravelDbTemporal\Eloquent\HasTemporalPivotRelations;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class PivotProbeOwner extends Model
 {
@@ -71,5 +72,15 @@ class PivotProbeOwner extends Model
     public function biTargets(): BelongsToMany
     {
         return $this->belongsToMany(PivotProbeTarget::class, 'bi_pivot_probes', 'owner_id', 'target_id');
+    }
+
+    /**
+     * Uni-temporal morph pivot table.
+     *
+     * @return MorphToMany<PivotProbeTarget, $this>
+     */
+    public function morphTargets(): MorphToMany
+    {
+        return $this->morphToMany(PivotProbeTarget::class, 'owner', 'morph_pivot_probes', 'owner_id', 'target_id');
     }
 }

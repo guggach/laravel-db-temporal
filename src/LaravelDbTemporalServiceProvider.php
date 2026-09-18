@@ -46,6 +46,7 @@ class LaravelDbTemporalServiceProvider extends PackageServiceProvider
             $this->commands([
                 Commands\InstallTemporalCommand::class,
                 Commands\UninstallTemporalCommand::class,
+                Commands\MakePivotMigrationCommand::class,
             ]);
         }
     }
