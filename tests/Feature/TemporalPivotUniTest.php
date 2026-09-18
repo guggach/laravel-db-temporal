@@ -157,6 +157,20 @@ it('assigns a surrogate id for an id-cluster pivot and soft deletes it', functio
         ->and(DB::table('id_pivot_probes')->where('known_to', '9999-12-31 23:59:59')->whereNull('deleted_at')->count())->toBe(1);
 });
 
+it('does not version updateExistingPivot when nothing changes', function () {
+    $owner = pivotOwner();
+    $target = pivotTarget();
+
+    $owner->targets()->attach($target->id, ['role' => 'first']);
+    expect(DB::table('uni_pivot_probes')->count())->toBe(1);
+
+    $owner->targets()->updateExistingPivot($target->id, ['role' => 'first']);
+    expect(DB::table('uni_pivot_probes')->count())->toBe(1);
+
+    $owner->targets()->updateExistingPivot($target->id, ['role' => 'second']);
+    expect(DB::table('uni_pivot_probes')->count())->toBe(2);
+});
+
 it('rejects a duplicate current attachment via unique constraint', function () {
     $owner = pivotOwner();
     $target = pivotTarget();

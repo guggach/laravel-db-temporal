@@ -375,6 +375,12 @@ trait InteractsWithTemporalPivot
             $values = $this->castPivotAttributes($this->addTimestampsToAttachment($attributes, true));
         }
 
+        // Dirty gate: do not create a version when nothing actually changes
+        // (sync() calls this for every existing link on each save).
+        if (! $this->pivotAttributesChanged($id, $values)) {
+            return 0;
+        }
+
         $updated = $this->newPivotStatementForId($id)->update($values);
 
         if ($touch) {
@@ -382,6 +388,45 @@ trait InteractsWithTemporalPivot
         }
 
         return $updated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     */
+    private function pivotAttributesChanged(mixed $id, array $values): bool
+    {
+        $current = $this->newPivotQuery()
+            ->whereIn($this->getQualifiedRelatedPivotKeyName(), $this->parseIds($id))
+            ->first();
+
+        if ($current === null) {
+            return true;
+        }
+
+        foreach ($values as $key => $value) {
+            if (in_array($key, [$this->createdAt(), $this->updatedAt()], true)) {
+                continue;
+            }
+
+            if ($this->pivotValueToString($current->{$key} ?? null) !== $this->pivotValueToString($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function pivotValueToString(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        return is_scalar($value) ? (string) $value : '';
     }
 
     /**
