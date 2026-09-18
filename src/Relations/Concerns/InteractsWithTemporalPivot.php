@@ -302,6 +302,13 @@ trait InteractsWithTemporalPivot
         $builder = $this->newTemporalPivotBuilder();
 
         foreach ($records as $record) {
+            // Re-attaching a soft-deleted link must not insert a second
+            // "current" row (unique on foreign, related, known_to) — revive the
+            // existing soft-deleted current version instead.
+            if ($this->reviveSoftDeletedPivot($record, $attributes)) {
+                continue;
+            }
+
             if ($this->pivotHasSingleId && ! array_key_exists('id', $record)) {
                 $builder->insertGetId($record, 'id');
             } else {
@@ -312,6 +319,66 @@ trait InteractsWithTemporalPivot
         if ($touch) {
             $this->touchIfTouching();
         }
+    }
+
+    /**
+     * Revive a soft-deleted current pivot row for the same (foreign, related)
+     * pair so `attach` does not collide with the unique index that includes
+     * `known_to`. Returns true when a row was revived (and the caller should
+     * skip the insert). Uni-temporal pivots with soft delete only.
+     *
+     * @param  array<string, mixed>  $record
+     * @param  array<string, mixed>  $attributes
+     */
+    private function reviveSoftDeletedPivot(array $record, array $attributes): bool
+    {
+        if ($this->pivotTemporalMode !== 'uni' || ! $this->pivotSoftDeletes) {
+            return false;
+        }
+
+        $current = (array) $this->newPivotPairQuery($record)
+            ->where($this->pivotKnownTo(), $this->pivotMaxTimestamp())
+            ->first();
+
+        if ($current === [] || ($current['deleted_at'] ?? null) === null) {
+            return false;
+        }
+
+        $values = $attributes;
+        $values['deleted_at'] = null;
+
+        $this->newPivotPairQuery($record)
+            ->where($this->pivotKnownTo(), $this->pivotMaxTimestamp())
+            ->update($values);
+
+        return true;
+    }
+
+    /**
+     * Base query on the pivot table constrained to the pair keys (foreign,
+     * related and morph type when present).
+     *
+     * @param  array<string, mixed>  $record
+     */
+    private function newPivotPairQuery(array $record): Builder
+    {
+        $query = $this->newTemporalPivotBuilder()
+            ->where($this->foreignPivotKey, $record[$this->foreignPivotKey] ?? null)
+            ->where($this->relatedPivotKey, $record[$this->relatedPivotKey] ?? null);
+
+        $morphType = $this->pivotMorphType();
+
+        if ($morphType !== null && isset($record[$morphType])) {
+            $query->where($morphType, $record[$morphType]);
+        }
+
+        return $query;
+    }
+
+    /** Morph type column for morph pivots; null for plain belongs-to-many. */
+    protected function pivotMorphType(): ?string
+    {
+        return null;
     }
 
     /**

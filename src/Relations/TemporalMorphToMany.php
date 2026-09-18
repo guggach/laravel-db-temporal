@@ -16,4 +16,9 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 class TemporalMorphToMany extends MorphToMany
 {
     use InteractsWithTemporalPivot;
+
+    protected function pivotMorphType(): ?string
+    {
+        return $this->morphType;
+    }
 }

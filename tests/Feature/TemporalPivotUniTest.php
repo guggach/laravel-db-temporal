@@ -157,6 +157,37 @@ it('assigns a surrogate id for an id-cluster pivot and soft deletes it', functio
         ->and(DB::table('id_pivot_probes')->where('known_to', '9999-12-31 23:59:59')->whereNull('deleted_at')->count())->toBe(1);
 });
 
+it('re-attaches a soft-deleted link without a unique violation', function () {
+    $owner = pivotOwner();
+    $target = pivotTarget();
+
+    $owner->softTargets()->attach($target->id, ['role' => 'first']);
+    $owner->softTargets()->detach($target->id);
+    expect($owner->softTargets()->count())->toBe(0);
+
+    $owner->softTargets()->attach($target->id, ['role' => 'again']);
+
+    expect($owner->softTargets()->count())->toBe(1)
+        ->and($owner->softTargets()->withPivot('role')->first()->pivot->role)->toBe('again')
+        ->and(DB::table('uni_pivot_soft_probes')
+            ->where('known_to', '9999-12-31 23:59:59')
+            ->whereNull('deleted_at')
+            ->count())->toBe(1);
+});
+
+it('re-attaches through sync after a soft delete', function () {
+    $owner = pivotOwner();
+    $target = pivotTarget();
+
+    $owner->softTargets()->attach($target->id);
+    $owner->softTargets()->sync([]);
+    expect($owner->softTargets()->count())->toBe(0);
+
+    $owner->softTargets()->sync([$target->id]);
+
+    expect($owner->softTargets()->count())->toBe(1);
+});
+
 it('does not version updateExistingPivot when nothing changes', function () {
     $owner = pivotOwner();
     $target = pivotTarget();
