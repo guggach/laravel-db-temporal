@@ -40,9 +40,11 @@ class BiTemporalScope implements Scope
             ? $now->format('Y-m-d H:i:s')
             : $now->format('Y-m-d').' 00:00:00';
 
-        $builder->where($model->getColumnKnownTo(), $model->getMaxTimestamp())
-            ->where($model->getColumnValidFrom(), '<=', $vtNow)
-            ->where($model->getColumnValidTo(), '>=', $vtNow);
+        // Qualify the columns: the related model may be joined with a temporal
+        // pivot table that carries the same column names.
+        $builder->where($model->qualifyColumn($model->getColumnKnownTo()), $model->getMaxTimestamp())
+            ->where($model->qualifyColumn($model->getColumnValidFrom()), '<=', $vtNow)
+            ->where($model->qualifyColumn($model->getColumnValidTo()), '>=', $vtNow);
     }
 
     /**

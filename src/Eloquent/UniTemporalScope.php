@@ -34,7 +34,9 @@ class UniTemporalScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        $builder->where($model->getColumnTrxTo(), $model->getMaxTimestamp());
+        // Qualify the column: the related model may be joined with a temporal
+        // pivot table that carries the same column name.
+        $builder->where($model->qualifyColumn($model->getColumnTrxTo()), $model->getMaxTimestamp());
     }
 
     /**
