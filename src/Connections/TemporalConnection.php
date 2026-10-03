@@ -98,6 +98,26 @@ class TemporalConnection extends Connection
         return $this->baseConnection->getName();
     }
 
+    /**
+     * Get the connection name including its read / write type.
+     *
+     * Laravel 13 decoupled this method from getName() and reads the name
+     * straight from `getConfig('name')`. The proxy deliberately receives its
+     * config without a `name` key (see getName()), so the framework's
+     * implementation returned NULL. The migrator (Migrator::runMethod()) then
+     * sets the default connection to that value; a NULL name makes
+     * `Arr::get($connections, null)` return the whole connections array, which
+     * has no `driver` key — every migration failed with "Undefined array key
+     * 'driver'". Resolve the identity through the base connection like
+     * getName() does, and append the proxy's read / write type.
+     */
+    public function getNameWithReadWriteType(): ?string
+    {
+        $name = $this->getName().($this->readWriteType ? '::'.$this->readWriteType : '');
+
+        return empty($name) ? null : $name;
+    }
+
     public function getUniTemporalDefaults(): TemporalConfig
     {
         return $this->defaultConfig;
