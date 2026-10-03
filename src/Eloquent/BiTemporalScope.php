@@ -10,6 +10,8 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * @template TModel of \Illuminate\Database\Eloquent\Model&\Guggach\LaravelDbTemporal\Eloquent\BiTemporalModel
+ *
+ * @implements Scope<TModel>
  */
 class BiTemporalScope implements Scope
 {
@@ -30,8 +32,8 @@ class BiTemporalScope implements Scope
     ];
 
     /**
-     * @param  Builder<Model>  $builder
-     * @param  Model&BiTemporalModel  $model
+     * @param  Builder<covariant TModel>  $builder
+     * @param  TModel  $model
      */
     public function apply(Builder $builder, Model $model): void
     {

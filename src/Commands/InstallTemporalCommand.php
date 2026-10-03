@@ -12,7 +12,8 @@ class InstallTemporalCommand extends Command
 
     public function handle(): int
     {
-        $path = $this->option('path') ?? config_path('database.php');
+        $path = $this->option('path');
+        $path = is_string($path) && $path !== '' ? $path : config_path('database.php');
 
         if (! file_exists($path)) {
             $this->components->error('config/database.php not found.');

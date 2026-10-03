@@ -11,6 +11,8 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * @template TModel of \Illuminate\Database\Eloquent\Model&\Guggach\LaravelDbTemporal\Eloquent\UniTemporalModel
+ *
+ * @implements Scope<TModel>
  */
 class UniTemporalScope implements Scope
 {
@@ -29,8 +31,8 @@ class UniTemporalScope implements Scope
     ];
 
     /**
-     * @param  Builder<Model>  $builder
-     * @param  Model&UniTemporalModel  $model
+     * @param  Builder<covariant TModel>  $builder
+     * @param  TModel  $model
      */
     public function apply(Builder $builder, Model $model): void
     {

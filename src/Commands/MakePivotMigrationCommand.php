@@ -18,11 +18,13 @@ class MakePivotMigrationCommand extends Command
 
     public function handle(): int
     {
-        $table = (string) $this->argument('table');
+        $tableArgument = $this->argument('table');
+        $table = is_string($tableArgument) ? $tableArgument : '';
 
+        $keysOption = $this->option('keys');
         $keys = array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) $this->option('keys')),
+            explode(',', is_string($keysOption) ? $keysOption : ''),
         )));
 
         if ($table === '' || $keys === []) {
